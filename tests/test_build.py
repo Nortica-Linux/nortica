@@ -5,9 +5,11 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 REPO = Path(__file__).resolve().parents[1]
@@ -25,6 +27,8 @@ class MakeTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         shutil.copyfile(REPO / "Makefile", self.root / "Makefile")
+        self.version = re.search(r"^CONFIG_VERSION = (.+)$", (self.root / "Makefile").read_text(), re.M)[1]
+        self.assertNotIn("$", self.version)
         git("init", "-q", cwd=self.root)
         self.pin = "1234567890abcdef1234567890abcdef12345678"
         git("update-index", "--add", "--cacheinfo", "160000", self.pin, "config", cwd=self.root)
@@ -45,8 +49,9 @@ if args[-2:] == ['bash', 'image/build.sh']:
     (cache / 'cached').touch()
     output = Path(next(m.rsplit(':', 1)[0] for m in mounts if m.endswith(':/workspace/iso')))
     data = b'fixture ISO'
-    (output / 'nortica-live-amd64.iso').write_bytes(data)
-    (output / 'SHA256SUMS').write_text(hashlib.sha256(data).hexdigest() + '  nortica-live-amd64.iso\\n')
+    name = 'nortica-live-amd64-fixture-' + str(len(list(output.glob('*.iso')))) + '.iso'
+    (output / name).write_bytes(data)
+    (output / (name + '.sha256')).write_text(hashlib.sha256(data).hexdigest() + '  ' + name + '\\n')
 else:
     assert args[-2:] == ['-c', 'find /build -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +']
     for child in cache.iterdir():
@@ -72,7 +77,7 @@ else:
     def calls(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
 
-    def test_default_is_iso_with_pinned_config_and_persistent_cache(self):
+    def test_default_is_iso_with_literal_makefile_version_and_persistent_cache(self):
         first = self.make()
         self.assertIn("\x1b[1;34m[Build]", first.stdout)
         self.assertEqual((self.root / ".build/reused").read_text(), "no")
@@ -80,16 +85,19 @@ else:
         self.assertEqual((self.root / ".build/reused").read_text(), "yes")
         self.assertEqual(self.calls()[0], self.calls()[1])
         args = self.calls()[0]
-        for expected in ("--privileged", "--init", "host", f"NORTICA_CONFIG_VERSION={self.pin}",
+        for expected in ("--privileged", "--init", "host", f"NORTICA_CONFIG_VERSION={self.version}",
                          f"{self.root}:/workspace:ro", f"{self.root}/.build:/build",
                          f"{self.root}/iso:/workspace/iso", f"NORTICA_OUTPUT_UID={os.getuid()}",
                          f"NORTICA_OUTPUT_GID={os.getgid()}"):
             self.assertIn(expected, args)
-        self.assertTrue((self.root / "iso/nortica-live-amd64.iso").is_file())
+        self.assertEqual(len(list((self.root / "iso").glob("*.iso"))), 2)
 
-    def test_config_override_and_no_color(self):
+    def test_config_is_edited_in_makefile_and_no_color(self):
+        makefile = self.root / "Makefile"
         for version in ("latest", "v1.2.3", self.pin):
-            result = self.make("iso", f"CONFIG_VERSION={version}", NO_COLOR="1")
+            makefile.write_text(re.sub(r"^CONFIG_VERSION = .+$", "CONFIG_VERSION = " + version,
+                                      makefile.read_text(), flags=re.M))
+            result = self.make("iso", NO_COLOR="1")
             self.assertNotIn("\x1b", result.stdout)
             self.assertIn(f"NORTICA_CONFIG_VERSION={version}", self.calls()[-1])
 
@@ -106,7 +114,7 @@ else:
 
     def test_docker_failures_propagate_without_success_or_iso_changes(self):
         self.make("iso")
-        iso = self.root / "iso/nortica-live-amd64.iso"
+        iso = next((self.root / "iso").glob("*.iso"))
         before = iso.read_bytes()
         result = self.make("iso", success=False, MOCK_STATUS="73")
         self.assertNotIn("[Done]", result.stdout)
@@ -240,7 +248,7 @@ class BuildOutputTests(unittest.TestCase):
         self.assertIn("--cache true --cache-stages bootstrap", build)
         self.assertIn("--exclude='/.build/' --exclude='/iso/'", build)
 
-    def test_publication_preserves_old_iso_on_failure_and_writes_checksum_on_success(self):
+    def test_timestamped_publication_preserves_old_images_and_handles_same_second(self):
         build = (REPO / "image/build.sh").read_text()
         snippet = build[build.index("# Publish only after") :]
         with tempfile.TemporaryDirectory() as temporary:
@@ -249,26 +257,74 @@ class BuildOutputTests(unittest.TestCase):
             generated.mkdir()
             output = root / "iso"
             output.mkdir()
-            iso = output / "nortica-live-amd64.iso"
-            sums = output / "SHA256SUMS"
-            iso.write_bytes(b"old ISO")
-            sums.write_text("old checksum\n")
+            old = output / "previous.iso"
+            old.write_bytes(b"old ISO")
+            old_sum = output / "previous.iso.sha256"
+            old_sum.write_text("old checksum\n")
+            tools = root / "bin"
+            tools.mkdir()
+            date = tools / "date"
+            date.write_text("#!/bin/sh\nprintf '20261116T120000Z\\n'\n")
+            date.chmod(0o755)
             env = dict(os.environ, ROOT=str(root), CONFIG_ROOT=str(generated),
+                       PATH=str(tools) + os.pathsep + os.environ["PATH"],
                        NORTICA_OUTPUT_UID=str(os.getuid()), NORTICA_OUTPUT_GID=str(os.getgid()))
             failed = subprocess.run(["bash", "-Eeuo", "pipefail", "-c", snippet],
                                     env=env, capture_output=True, text=True)
             self.assertNotEqual(failed.returncode, 0)
-            self.assertEqual(iso.read_bytes(), b"old ISO")
-            self.assertEqual(sums.read_text(), "old checksum\n")
             self.assertEqual(list(output.glob(".publish.*")), [])
-            data = b"new fixture ISO"
-            (generated / "live-image.iso").write_bytes(data)
-            subprocess.run(["bash", "-Eeuo", "pipefail", "-c", snippet],
-                           env=env, check=True, capture_output=True, text=True)
-            self.assertEqual(iso.read_bytes(), data)
-            self.assertEqual(sums.read_text(), hashlib.sha256(data).hexdigest() + "  nortica-live-amd64.iso\n")
-            self.assertEqual(iso.stat().st_uid, os.getuid())
-            self.assertEqual(list(output.glob(".publish.*")), [])
+            for index, data in enumerate((b"first fixture ISO", b"second fixture ISO")):
+                (generated / "live-image.iso").write_bytes(data)
+                subprocess.run(["bash", "-Eeuo", "pipefail", "-c", snippet],
+                               env=env, check=True, capture_output=True, text=True)
+                suffix = "" if index == 0 else "-1"
+                name = f"nortica-live-amd64-20261116T120000Z{suffix}.iso"
+                iso = output / name
+                self.assertEqual(iso.read_bytes(), data)
+                self.assertEqual((output / (name + ".sha256")).read_text(),
+                                 hashlib.sha256(data).hexdigest() + f"  {name}\n")
+                self.assertEqual(iso.stat().st_uid, os.getuid())
+                self.assertEqual(list(output.glob(".publish.*")), [])
+            self.assertEqual(len(list(output.glob("*.iso"))), 3)
+            self.assertEqual((output / "nortica-live-amd64-20261116T120000Z.iso").read_bytes(),
+                             b"first fixture ISO")
+            self.assertEqual(old.read_bytes(), b"old ISO")
+            self.assertEqual(old_sum.read_text(), "old checksum\n")
+
+    def test_release_assets_use_actual_timestamp_for_full_and_split_images(self):
+        workflow = (REPO / ".github/workflows/live-image.yml").read_text()
+        start = workflow.index("          set -Eeuo pipefail")
+        end = workflow.index("\n      - name:", start)
+        script = textwrap.dedent(workflow[start:end])
+        for split in (False, True):
+            with self.subTest(split=split), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / "iso").mkdir()
+                name = "nortica-live-amd64-20261116T120000Z.iso"
+                data = b"release fixture ISO"
+                (root / "iso" / name).write_bytes(data)
+                checksum = hashlib.sha256(data).hexdigest() + f"  {name}\n"
+                (root / "iso" / (name + ".sha256")).write_text(checksum)
+                env = dict(os.environ)
+                if split:
+                    tools = root / "bin"
+                    tools.mkdir()
+                    stat = tools / "stat"
+                    stat.write_text("#!/bin/sh\nprintf '2000000000\\n'\n")
+                    stat.chmod(0o755)
+                    env["PATH"] = str(tools) + os.pathsep + env["PATH"]
+                subprocess.run(["bash", "-c", script], cwd=root, env=env, check=True,
+                               capture_output=True, text=True)
+                assets = root / "release-assets"
+                self.assertEqual((assets / (name + ".sha256")).read_text(), checksum)
+                if split:
+                    self.assertFalse((assets / name).exists())
+                    self.assertEqual(b"".join(p.read_bytes() for p in sorted(assets.glob("*.part.*"))), data)
+                    instructions = (assets / "REASSEMBLE.txt").read_text()
+                    self.assertIn(f"cat {name}.part.* > {name}", instructions)
+                    self.assertIn(f"sha256sum -c {name}.sha256", instructions)
+                else:
+                    self.assertEqual((assets / name).read_bytes(), data)
 
 
 if __name__ == "__main__":

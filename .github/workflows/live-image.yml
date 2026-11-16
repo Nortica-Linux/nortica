@@ -22,25 +22,28 @@ jobs:
         run: make iso
 
       - name: Prepare release assets
-        id: release-assets
         shell: bash
         run: |
           set -Eeuo pipefail
           mkdir -p release-assets
-          cp iso/nortica-live-amd64.iso iso/SHA256SUMS release-assets/
-          size=$(stat -c %s release-assets/nortica-live-amd64.iso)
+          images=(iso/nortica-live-amd64-*.iso)
+          [[ ${#images[@]} == 1 && -s ${images[0]} ]] || {
+            echo 'Expected one completed ISO in the fresh build workspace.' >&2
+            exit 1
+          }
+          image=${images[0]##*/}
+          cp "iso/$image" "iso/$image.sha256" release-assets/
+          size=$(stat -c %s "release-assets/$image")
           if ((size >= 1900 * 1024 * 1024)); then
-            mv release-assets/nortica-live-amd64.iso release-assets/nortica-live-amd64.iso.full
             split --bytes=1800M --numeric-suffixes=0 --suffix-length=3 \
-              release-assets/nortica-live-amd64.iso.full \
-              release-assets/nortica-live-amd64.iso.part.
-            rm release-assets/nortica-live-amd64.iso.full
-            cat > release-assets/REASSEMBLE.txt <<'EOF'
+              "release-assets/$image" "release-assets/$image.part."
+            rm "release-assets/$image"
+            cat > release-assets/REASSEMBLE.txt <<EOF
           The ISO was split into GitHub Release assets to meet the per-file size limit.
-          Put every nortica-live-amd64.iso.part.* file in one directory and run:
+          Put every $image.part.* file in one directory and run:
 
-              cat nortica-live-amd64.iso.part.* > nortica-live-amd64.iso
-              sha256sum -c SHA256SUMS
+              cat $image.part.* > $image
+              sha256sum -c $image.sha256
           EOF
           fi
 
@@ -49,8 +52,8 @@ jobs:
         with:
           name: nortica-live-${{ github.ref_name }}
           path: |
-            iso/nortica-live-amd64.iso
-            iso/SHA256SUMS
+            iso/*.iso
+            iso/*.iso.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 30

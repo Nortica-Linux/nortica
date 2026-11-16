@@ -46,13 +46,18 @@ printf 'synthetic ISO\\n' > "$CONFIG_ROOT/live-image.iso"
 ''' + publish)
 PY
 make --no-print-directory -C "$TEST" iso
-make --no-print-directory -C "$TEST" CONFIG_VERSION=latest > "$TEST/rebuild.log"
+make --no-print-directory -C "$TEST" > "$TEST/rebuild.log"
 grep -q '^REUSED_CACHE$' "$TEST/rebuild.log"
-[[ $(stat -c %u "$TEST/iso/nortica-live-amd64.iso") == "$(id -u)" ]]
-[[ $(stat -c %g "$TEST/iso/nortica-live-amd64.iso") == "$(id -g)" ]]
-(cd "$TEST/iso" && sha256sum -c SHA256SUMS)
+images=("$TEST"/iso/*.iso)
+[[ ${#images[@]} == 2 ]]
+for image in "${images[@]}"; do
+    [[ $(stat -c %u "$image") == "$(id -u)" ]]
+    [[ $(stat -c %g "$image") == "$(id -g)" ]]
+    [[ -s $image.sha256 ]]
+done
+(cd "$TEST/iso" && sha256sum -c ./*.iso.sha256)
 make --no-print-directory -C "$TEST" clean
 [[ ! -e $TEST/.build ]]
-[[ -s $TEST/iso/nortica-live-amd64.iso && -s $TEST/iso/SHA256SUMS ]]
+for image in "${images[@]}"; do [[ -s $image && -s $image.sha256 ]]; done
 make --no-print-directory -C "$TEST" clean
 printf 'PASS: Docker read-only source, cache reuse, output ownership and complete clean preserving ISO\n'

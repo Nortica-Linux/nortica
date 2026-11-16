@@ -53,7 +53,7 @@ trap 'exit 143' TERM
                 self.assertIn(url, (REPO / path).read_text())
         readme = (REPO / "README.md").read_text()
         self.assertIn("https://github.com/Nortica-Linux/nortica.git", readme)
-        self.assertIn("iso/nortica-live-amd64.iso", readme)
+        self.assertIn("iso/nortica-live-amd64-", readme)
 
     def test_desktop_profiles_and_no(self):
         for profile in ("intel", "amd", "nvidia", "nouveau", "vm"):

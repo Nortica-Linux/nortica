@@ -1,5 +1,5 @@
-# Config tag/commit, or latest to follow config's main branch.
-CONFIG_VERSION = $(shell git rev-parse HEAD:config)
+# Config release tag/commit, or latest to follow config's main branch.
+CONFIG_VERSION = 93b467575056688dd55dff087e3dab6104ed0422
 DOCKER ?= docker
 
 .DEFAULT_GOAL := iso
@@ -38,7 +38,7 @@ iso:
 	  --env NORTICA_CONFIG_VERSION="$(CONFIG_VERSION)" \
 	  --env NORTICA_OUTPUT_UID="$$(id -u)" --env NORTICA_OUTPUT_GID="$$(id -g)" \
 	  debian:trixie-slim bash image/build.sh
-	printf '$(GREEN)[Done]$(RESET) iso/nortica-live-amd64.iso\n'
+	printf '$(GREEN)[Done]$(RESET) Timestamped ISO and checksum in iso/\n'
 
 clean:
 	@exec 9>"$(LOCK)"

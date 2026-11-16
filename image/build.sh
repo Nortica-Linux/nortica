@@ -22,6 +22,8 @@ source /etc/os-release
     echo 'Build in a Debian 13 Trixie environment.' >&2
     exit 1
 }
+CONFIG_VERSION=${NORTICA_CONFIG_VERSION:?Build via make iso; set CONFIG_VERSION in Makefile.}
+
 # Cache package downloads across disposable container runs.
 install -d "$BUILD_ROOT/build-apt-cache/partial"
 printf 'Dir::Cache::archives "%s";\n' "$BUILD_ROOT/build-apt-cache" \
@@ -32,8 +34,6 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends ca-certificates curl git
 
-# The source mount can belong to a different UID inside the build container.
-CONFIG_VERSION=${NORTICA_CONFIG_VERSION:-$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse HEAD:config)}
 # shellcheck source=image/config.sh
 source "$IMAGE_ROOT/config.sh"
 prepare_config_source "$CONFIG_VERSION" "$CONFIG_SOURCE_DIR"
@@ -212,19 +212,30 @@ lb config \
     --iso-volume 'NORTICA'
 lb build
 
-# Publish only after a successful build; keep any previous ISO on failure.
+# Publish only after a successful build; never replace an earlier image.
 install -d "$ROOT/iso"
+stem="nortica-live-amd64-$(date -u +%Y%m%dT%H%M%SZ)"
+filename="$stem.iso"
+suffix=0
+while [[ -e $ROOT/iso/$filename || -L $ROOT/iso/$filename ||
+         -e $ROOT/iso/$filename.sha256 || -L $ROOT/iso/$filename.sha256 ]]; do
+    ((suffix += 1))
+    filename="$stem-$suffix.iso"
+done
 output=$(mktemp -d "$ROOT/iso/.publish.XXXXXX")
 trap 'rm -rf -- "$output"' EXIT
-find "$CONFIG_ROOT" -maxdepth 1 -type f -name '*.iso' -exec install -m 644 {} "$output/nortica-live-amd64.iso" \;
-[[ -s "$output/nortica-live-amd64.iso" ]] || { echo 'live-build produced no ISO.' >&2; exit 1; }
+find "$CONFIG_ROOT" -maxdepth 1 -type f -name '*.iso' -exec install -m 644 {} "$output/$filename" \;
+[[ -s "$output/$filename" ]] || { echo 'live-build produced no ISO.' >&2; exit 1; }
 (
     cd "$output"
-    sha256sum nortica-live-amd64.iso > SHA256SUMS
+    sha256sum "$filename" > "$filename.sha256"
 )
 if [[ -n ${NORTICA_OUTPUT_UID:-} && -n ${NORTICA_OUTPUT_GID:-} ]]; then
     chown "$NORTICA_OUTPUT_UID:$NORTICA_OUTPUT_GID" "$output/"*
 fi
-mv -f "$output/nortica-live-amd64.iso" "$output/SHA256SUMS" "$ROOT/iso/"
-printf 'Built %s (%s bytes).\n' "$ROOT/iso/nortica-live-amd64.iso" \
-    "$(stat -c %s "$ROOT/iso/nortica-live-amd64.iso")"
+# Hard links publish complete files and refuse to clobber an existing name,
+# even if another publisher bypasses Make's build lock.
+ln -- "$output/$filename" "$ROOT/iso/$filename"
+ln -- "$output/$filename.sha256" "$ROOT/iso/$filename.sha256"
+printf 'Built %s (%s bytes).\n' "$ROOT/iso/$filename" \
+    "$(stat -c %s "$ROOT/iso/$filename")"

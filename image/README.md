@@ -4,11 +4,13 @@
 container. Source is mounted read-only; only `.build/` and `iso/` are writable.
 Build and clean operations share a lock and cannot run concurrently.
 
-- `CONFIG_VERSION`: config tag or commit. Defaults to the main repository's
-  pinned `config` submodule commit. `latest` fetches config's current `main`.
+- `CONFIG_VERSION` in `Makefile`: config release tag or commit.
+  Set it to `latest` to fetch config's current `main`.
 - `.build/`: downloaded packages, config checkout, bootstrap archive and
   live-build caches. Generated roots are rebuilt so configuration changes apply.
-- `iso/`: completed ISO and `SHA256SUMS`, owned by the invoking user.
+- `iso/`: UTC-timestamped ISOs and matching `.iso.sha256` files, owned by the
+  invoking user. Earlier builds are never overwritten; same-second collisions
+  receive a numeric suffix.
 - `make clean`: removes `.build/`, including root-owned files; preserves `iso/`.
   Shared Docker images are not deleted.
 
@@ -20,20 +22,20 @@ Desktop packages are listed in [`deploy/vars.sh`](../deploy/vars.sh). Boot menus
 are under [`boot-menu/`](boot-menu/). The live account is `liveuser`; installed
 accounts do not autologin.
 
-For a native build, run `bash image/build.sh` as root in a disposable Debian 13
-Trixie amd64 VM. Override its cache path with `NORTICA_BUILD_DIR` and config
-selection with `NORTICA_CONFIG_VERSION`. Never run it directly on a workstation:
-it changes APT sources and installs packages.
+`image/build.sh` is the internal container entry point. Use Make rather than
+running it on a workstation: it changes APT sources and installs packages.
 
 ## Releases
 
 Pushing a `v*` tag runs [the image workflow](../.github/workflows/live-image.yml)
 and publishes the ISO and checksums. Large images are split into numbered
-assets. Download every part and `SHA256SUMS`, then run:
+assets. Download every part and the matching `.iso.sha256` file. Using the
+actual timestamped image name:
 
 ```sh
-cat nortica-live-amd64.iso.part.* > nortica-live-amd64.iso
-sha256sum -c SHA256SUMS
+image=nortica-live-amd64-20261116T120000Z.iso
+cat "$image".part.* > "$image"
+sha256sum -c "$image.sha256"
 ```
 
 Only x86-64 UEFI with Secure Boot disabled is supported. Image generation does

@@ -8,18 +8,18 @@ Requires an amd64 Linux host, Docker, GNU Make, `flock` and internet access.
 git clone --recurse-submodules https://github.com/Nortica-Linux/nortica.git
 cd nortica
 make iso                  # make does the same
-make iso CONFIG_VERSION=latest
 make clean                # remove build files and caches; keep iso/
 ```
 
-Output: `iso/nortica-live-amd64.iso` and `iso/SHA256SUMS`.
-`CONFIG_VERSION` defaults to the pinned config submodule commit; override it
-with a config tag, commit or `latest` (current `main`). Build caches persist in
-`.build/`. See [build details](image/README.md).
+Output: `iso/nortica-live-amd64-YYYYMMDDTHHMMSSZ.iso` and a matching `.iso.sha256`.
+Timestamps are UTC; previous images are kept.
+Set `CONFIG_VERSION` in `Makefile` to a config release tag, commit or `latest`
+(current `main`). Build caches persist in `.build/`.
+See [build details](image/README.md).
 
 ## Use it
 
-1. Verify the image: `cd iso && sha256sum -c SHA256SUMS`.
+1. Verify the image: `cd iso && sha256sum -c *.iso.sha256`.
 2. Write the ISO to a USB drive using an image writer.
 3. Boot it in **x86-64 UEFI mode with Secure Boot disabled**.
 4. Open **Nortica Install** from the launcher, or run `nortica-install`.
