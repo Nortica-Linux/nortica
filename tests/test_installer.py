@@ -48,12 +48,12 @@ trap 'exit 143' TERM
 
     def test_organization_config_sources(self):
         url = "https://github.com/Nortica-Linux/config.git"
-        for path in (".gitmodules", "lib/target.sh", "image/build.sh"):
+        for path in (".gitmodules", "lib/target.sh", "image/config.sh"):
             with self.subTest(path=path):
                 self.assertIn(url, (REPO / path).read_text())
         readme = (REPO / "README.md").read_text()
         self.assertIn("https://github.com/Nortica-Linux/nortica.git", readme)
-        self.assertIn("dist/nortica-live-amd64.iso", readme)
+        self.assertIn("iso/nortica-live-amd64.iso", readme)
 
     def test_desktop_profiles_and_no(self):
         for profile in ("intel", "amd", "nvidia", "nouveau", "vm"):

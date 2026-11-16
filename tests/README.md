@@ -2,7 +2,7 @@
 
 ## Host-safe tests
 
-Requires Bash, Python 3, Git, Lua 5.4, Pillow and `pyte`.
+Requires Bash, GNU Make, `flock`, Python 3, Git, Lua 5.4, Pillow and `pyte`.
 On Debian, the Python dependencies are `python3-pil` and `python3-pyte`.
 
 ```sh
@@ -10,8 +10,9 @@ python3 -m unittest discover -v -s tests -p 'test_*.py'
 ```
 
 Tests cover configuration and confirmation guards, GPU profiles, mocked disk
-operations, failure propagation, cleanup, networking, config pinning, user
-setup, Hyprland callbacks, boot assets and terminal redraw/resize/interrupts.
+operations, failure propagation, cleanup, networking, config tags/commits/latest,
+Make targets, cache reuse, ISO publication, user setup, Hyprland callbacks,
+boot assets and terminal redraw/resize/interrupts.
 They never install to host disks. Run as a normal user to exercise user setup.
 
 ```sh
@@ -19,6 +20,13 @@ for file in install.sh image/*.sh lib/*.sh deploy/*.sh deploy/scripts/*.sh \
   config/*.sh config/scripts/*/*.sh tests/*.sh; do bash -n "$file"; done
 shellcheck -x install.sh image/*.sh lib/*.sh deploy/*.sh deploy/scripts/*.sh \
   config/*.sh config/scripts/*/*.sh tests/*.sh
+```
+
+With Docker available, test the real Make/Docker mounts and root-owned cache
+cleanup using a synthetic builder (no real image build or disk operations):
+
+```sh
+bash tests/make-container.sh
 ```
 
 ## Disposable container tests

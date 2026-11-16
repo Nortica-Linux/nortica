@@ -22,24 +22,26 @@ source /etc/os-release
     echo 'Build in a Debian 13 Trixie environment.' >&2
     exit 1
 }
-[[ -e $ROOT/config/.git && -f $ROOT/config/deploy.sh ]] || {
-    echo 'Initialize the config submodule: git submodule update --init --recursive' >&2
-    exit 1
-}
+# Cache package downloads across disposable container runs.
+install -d "$BUILD_ROOT/build-apt-cache/partial"
+printf 'Dir::Cache::archives "%s";\n' "$BUILD_ROOT/build-apt-cache" \
+    > /etc/apt/apt.conf.d/80-nortica-cache
+rm -f /etc/apt/apt.conf.d/docker-clean
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends ca-certificates curl git
 
-# Use the checked-out submodule commit, never a moving branch or latest tag.
 # The source mount can belong to a different UID inside the build container.
-config_commit=$(git -c safe.directory="$ROOT/config" -C "$ROOT/config" rev-parse HEAD)
-rm -rf -- "$CONFIG_SOURCE_DIR"
-git clone https://github.com/Nortica-Linux/config.git "$CONFIG_SOURCE_DIR"
-git -C "$CONFIG_SOURCE_DIR" checkout --detach "$config_commit"
-printf 'Using Nortica config commit %s in this image.\n' "$config_commit"
+CONFIG_VERSION=${NORTICA_CONFIG_VERSION:-$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse HEAD:config)}
+# shellcheck source=image/config.sh
+source "$IMAGE_ROOT/config.sh"
+prepare_config_source "$CONFIG_VERSION" "$CONFIG_SOURCE_DIR"
 
-rm -rf -- "$CONFIG_ROOT"
+# Rebuild generated configuration and roots, retaining live-build's bootstrap
+# and package caches. Never reuse a previously configured desktop root.
+install -d "$CONFIG_ROOT"
+find "$CONFIG_ROOT" -mindepth 1 -maxdepth 1 ! -name cache -exec rm -rf -- {} +
 install -d "$APT_CACHE/partial" "$REPO_ROOT/pool" "$CONFIG_ROOT/config/package-lists" \
     "$CONFIG_ROOT/config/archives" "$CONFIG_ROOT/config/includes.chroot/opt/nortica-install" \
     "$CONFIG_ROOT/config/hooks/normal"
@@ -115,6 +117,7 @@ printf '%s\n' "${live_packages[@]}" > "$CONFIG_ROOT/config/package-lists/nortica
 printf 'deb http://deb.debian.org/debian %s-backports main contrib non-free non-free-firmware\n' \
     "$RELEASE" > "$CONFIG_ROOT/config/archives/debian-backports.list.chroot"
 rsync -a --exclude='/.git/' --exclude='/AGENTS.md' --exclude='/dist/' \
+    --exclude='/.build/' --exclude='/iso/' \
     --exclude='/tests/' --exclude='/image/' --exclude='__pycache__/' --exclude='*.pyc' \
     --exclude='/.image-build-work/' \
     --exclude='/.agents/' --exclude='/.aws/' --exclude='/.codex/' \
@@ -197,6 +200,7 @@ lb config \
     --distribution "$RELEASE" \
     --architectures amd64 \
     --binary-images iso-hybrid \
+    --cache true --cache-stages bootstrap \
     --bootappend-live 'boot=live components quiet splash hostname=nortica username=liveuser' \
     --archive-areas 'main contrib non-free non-free-firmware' \
     --apt-recommends false \
@@ -208,12 +212,19 @@ lb config \
     --iso-volume 'NORTICA'
 lb build
 
-install -d "$ROOT/dist"
-find "$CONFIG_ROOT" -maxdepth 1 -type f -name '*.iso' -exec install -m 644 {} "$ROOT/dist/nortica-live-amd64.iso" \;
-[[ -s "$ROOT/dist/nortica-live-amd64.iso" ]] || { echo 'live-build produced no ISO.' >&2; exit 1; }
+# Publish only after a successful build; keep any previous ISO on failure.
+install -d "$ROOT/iso"
+output=$(mktemp -d "$ROOT/iso/.publish.XXXXXX")
+trap 'rm -rf -- "$output"' EXIT
+find "$CONFIG_ROOT" -maxdepth 1 -type f -name '*.iso' -exec install -m 644 {} "$output/nortica-live-amd64.iso" \;
+[[ -s "$output/nortica-live-amd64.iso" ]] || { echo 'live-build produced no ISO.' >&2; exit 1; }
 (
-    cd "$ROOT/dist"
+    cd "$output"
     sha256sum nortica-live-amd64.iso > SHA256SUMS
 )
-printf 'Built %s (%s bytes).\n' "$ROOT/dist/nortica-live-amd64.iso" \
-    "$(stat -c %s "$ROOT/dist/nortica-live-amd64.iso")"
+if [[ -n ${NORTICA_OUTPUT_UID:-} && -n ${NORTICA_OUTPUT_GID:-} ]]; then
+    chown "$NORTICA_OUTPUT_UID:$NORTICA_OUTPUT_GID" "$output/"*
+fi
+mv -f "$output/nortica-live-amd64.iso" "$output/SHA256SUMS" "$ROOT/iso/"
+printf 'Built %s (%s bytes).\n' "$ROOT/iso/nortica-live-amd64.iso" \
+    "$(stat -c %s "$ROOT/iso/nortica-live-amd64.iso")"

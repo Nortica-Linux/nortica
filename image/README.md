@@ -1,24 +1,29 @@
 # Image build
 
-Run [`build.sh`](build.sh) in a disposable Debian 13 Trixie amd64 environment
-as root. The Docker command in the [root README](../README.md) provides one.
-Never run the builder directly on a workstation: it changes APT sources and
-installs packages in its build environment.
+`make` / `make iso` runs the builder in a disposable privileged Debian 13
+container. Source is mounted read-only; only `.build/` and `iso/` are writable.
+Build and clean operations share a lock and cannot run concurrently.
 
-- Output: `dist/nortica-live-amd64.iso` and `dist/SHA256SUMS`.
-- Working files: `/tmp/nortica-live-build`, overridable with `NORTICA_BUILD_DIR`.
-- Desktop packages: [`deploy/vars.sh`](../deploy/vars.sh).
-- User configuration: the exact commit checked out in the `config` submodule.
-  Initialize it with `git submodule update --init --recursive` before building.
-- Boot menus: [`boot-menu/`](boot-menu/); backgrounds use the bundled wallpaper.
+- `CONFIG_VERSION`: config tag or commit. Defaults to the main repository's
+  pinned `config` submodule commit. `latest` fetches config's current `main`.
+- `.build/`: downloaded packages, config checkout, bootstrap archive and
+  live-build caches. Generated roots are rebuilt so configuration changes apply.
+- `iso/`: completed ISO and `SHA256SUMS`, owned by the invoking user.
+- `make clean`: removes `.build/`, including root-owned files; preserves `iso/`.
+  Shared Docker images are not deleted.
 
-The image includes a Debian bootstrap archive and a local APT repository for
-all installer GPU profiles. Installation still needs network access. Packages
-are resolved at build time; builds are not byte-for-byte reproducible.
+Both live and installed desktops use the selected config commit. The developer's
+submodule checkout is not changed. Packages are resolved at build time; builds
+are not byte-for-byte reproducible. A failed build does not publish an image.
 
-The live account is `liveuser`. TTY1 autologin starts Hyprland; the installer
-runs through a restricted sudo launcher. Installed accounts do not autologin.
-The live desktop uses NetworkManager, Mesa and the stock Plymouth spinner.
+Desktop packages are listed in [`deploy/vars.sh`](../deploy/vars.sh). Boot menus
+are under [`boot-menu/`](boot-menu/). The live account is `liveuser`; installed
+accounts do not autologin.
+
+For a native build, run `bash image/build.sh` as root in a disposable Debian 13
+Trixie amd64 VM. Override its cache path with `NORTICA_BUILD_DIR` and config
+selection with `NORTICA_CONFIG_VERSION`. Never run it directly on a workstation:
+it changes APT sources and installs packages.
 
 ## Releases
 

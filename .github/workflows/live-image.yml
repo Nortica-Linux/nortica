@@ -19,12 +19,7 @@ jobs:
           submodules: recursive
 
       - name: Build image
-        run: |
-          docker run --rm --privileged --network host \
-            --volume "$GITHUB_WORKSPACE:/workspace" \
-            --workdir /workspace \
-            debian:trixie-slim \
-            bash /workspace/image/build.sh
+        run: make iso
 
       - name: Prepare release assets
         id: release-assets
@@ -32,7 +27,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           mkdir -p release-assets
-          cp dist/nortica-live-amd64.iso dist/SHA256SUMS release-assets/
+          cp iso/nortica-live-amd64.iso iso/SHA256SUMS release-assets/
           size=$(stat -c %s release-assets/nortica-live-amd64.iso)
           if ((size >= 1900 * 1024 * 1024)); then
             mv release-assets/nortica-live-amd64.iso release-assets/nortica-live-amd64.iso.full
@@ -54,8 +49,8 @@ jobs:
         with:
           name: nortica-live-${{ github.ref_name }}
           path: |
-            dist/nortica-live-amd64.iso
-            dist/SHA256SUMS
+            iso/nortica-live-amd64.iso
+            iso/SHA256SUMS
           if-no-files-found: error
           compression-level: 0
           retention-days: 30

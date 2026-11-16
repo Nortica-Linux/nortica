@@ -2,24 +2,24 @@
 
 ## Build an image
 
-Requires an amd64 Linux host, Docker and internet access.
+Requires an amd64 Linux host, Docker, GNU Make, `flock` and internet access.
 
 ```sh
 git clone --recurse-submodules https://github.com/Nortica-Linux/nortica.git
 cd nortica
-docker run --rm --privileged --network host \
-  --volume "$PWD:/workspace" --workdir /workspace \
-  debian:trixie-slim bash image/build.sh
+make iso                  # make does the same
+make iso CONFIG_VERSION=latest
+make clean                # remove build files and caches; keep iso/
 ```
 
-Output: `dist/nortica-live-amd64.iso` and `dist/SHA256SUMS`.
-The build uses the pinned [`config`](https://github.com/Nortica-Linux/config)
-submodule for both live and installed desktops. Package versions depend on
-upstream repositories at build time. See [build details](image/README.md).
+Output: `iso/nortica-live-amd64.iso` and `iso/SHA256SUMS`.
+`CONFIG_VERSION` defaults to the pinned config submodule commit; override it
+with a config tag, commit or `latest` (current `main`). Build caches persist in
+`.build/`. See [build details](image/README.md).
 
 ## Use it
 
-1. Verify the image with `sha256sum -c SHA256SUMS` in `dist/`.
+1. Verify the image: `cd iso && sha256sum -c SHA256SUMS`.
 2. Write the ISO to a USB drive using an image writer.
 3. Boot it in **x86-64 UEFI mode with Secure Boot disabled**.
 4. Open **Nortica Install** from the launcher, or run `nortica-install`.
