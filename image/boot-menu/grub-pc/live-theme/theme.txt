@@ -1,5 +1,5 @@
 desktop-image: "../splash.png"
-title-text: "DebianZFS Live"
+title-text: "Nortica Live"
 title-color: "#ffffff"
 title-font: "Unifont Regular 16"
 message-font: "Unifont Regular 16"

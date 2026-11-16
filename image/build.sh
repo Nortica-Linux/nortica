@@ -7,11 +7,11 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 # shellcheck source=deploy/vars.sh
 source "$ROOT/deploy/vars.sh"
 IMAGE_ROOT="$ROOT/image"
-BUILD_ROOT=${DEBIANZFS_BUILD_DIR:-/tmp/debianzfs-live-build}
+BUILD_ROOT=${NORTICA_BUILD_DIR:-/tmp/nortica-live-build}
 APT_CACHE="$BUILD_ROOT/apt-cache"
 REPO_ROOT="$BUILD_ROOT/cache-repo"
 CONFIG_ROOT="$BUILD_ROOT/live-config"
-CONFIG_SOURCE_DIR="$BUILD_ROOT/debianzfs-config-source"
+CONFIG_SOURCE_DIR="$BUILD_ROOT/nortica-config-source"
 DEBIAN_MIRROR=https://deb.debian.org/debian
 RELEASE=trixie
 
@@ -22,33 +22,33 @@ source /etc/os-release
     echo 'Build in a Debian 13 Trixie environment.' >&2
     exit 1
 }
+[[ -e $ROOT/config/.git && -f $ROOT/config/deploy.sh ]] || {
+    echo 'Initialize the config submodule: git submodule update --init --recursive' >&2
+    exit 1
+}
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends ca-certificates curl git
 
-# Pin each generated image to the newest published config version tag. This
-# makes image builds reproducible while letting them consume a config release
-# newer than the installer submodule's fallback pin.
-config_tag=$(git ls-remote --tags --refs --sort=-version:refname \
-    https://github.com/DebianZFS/config.git 'v*' |
-    sed -n '1s|.*refs/tags/||p')
-[[ -n $config_tag ]] || { echo 'No debianzfs-config version tag is available.' >&2; exit 1; }
+# Use the checked-out submodule commit, never a moving branch or latest tag.
+# The source mount can belong to a different UID inside the build container.
+config_commit=$(git -c safe.directory="$ROOT/config" -C "$ROOT/config" rev-parse HEAD)
 rm -rf -- "$CONFIG_SOURCE_DIR"
-git clone --branch "$config_tag" \
-    https://github.com/DebianZFS/config.git "$CONFIG_SOURCE_DIR"
-printf 'Using debianzfs-config tag %s in this image.\n' "$config_tag"
+git clone https://github.com/Nortica-Linux/config.git "$CONFIG_SOURCE_DIR"
+git -C "$CONFIG_SOURCE_DIR" checkout --detach "$config_commit"
+printf 'Using Nortica config commit %s in this image.\n' "$config_commit"
 
 rm -rf -- "$CONFIG_ROOT"
 install -d "$APT_CACHE/partial" "$REPO_ROOT/pool" "$CONFIG_ROOT/config/package-lists" \
-    "$CONFIG_ROOT/config/archives" "$CONFIG_ROOT/config/includes.chroot/opt/debianzfs-install" \
+    "$CONFIG_ROOT/config/archives" "$CONFIG_ROOT/config/includes.chroot/opt/nortica-install" \
     "$CONFIG_ROOT/config/hooks/normal"
 {
     printf 'deb %s %s main contrib non-free non-free-firmware\n' "$DEBIAN_MIRROR" "$RELEASE"
     printf 'deb http://deb.debian.org/debian %s-backports main contrib non-free non-free-firmware\n' "$RELEASE"
     printf 'deb %s %s-updates main contrib non-free non-free-firmware\n' "$DEBIAN_MIRROR" "$RELEASE"
     printf 'deb https://security.debian.org/debian-security %s-security main contrib non-free non-free-firmware\n' "$RELEASE"
-} > /etc/apt/sources.list.d/debianzfs-image-build.list
+} > /etc/apt/sources.list.d/nortica-image-build.list
 rm -f /etc/apt/sources.list.d/debian.sources
 curl --fail --location --retry 3 --output "$BUILD_ROOT/nickh-archive-keyring.deb" \
     https://pkg.noctalia.dev/deb/nickh-archive-keyring.deb
@@ -82,9 +82,7 @@ done
 apt-get --download-only --reinstall -o "Dir::Cache::archives=$APT_CACHE" \
     -o APT::Get::Assume-Yes=true install linux-image-amd64 linux-headers-amd64
 
-# Resolve the target package sets in a minimal Trixie environment. Installing
-# live-build helpers first can make their installed library versions constrain
-# the target dependency solver, even though the installer target is fresh.
+# Resolve target packages before installed build helpers constrain the solver.
 apt-get install -y --no-install-recommends \
     live-build debootstrap xorriso squashfs-tools syslinux-common isolinux \
     grub-pc-bin grub-efi-amd64-bin dpkg-dev apt-utils git rsync python3 python3-pil
@@ -99,8 +97,8 @@ find "$APT_CACHE" -maxdepth 1 -type f -name '*.deb' -exec cp -n -t "$REPO_ROOT/p
 )
 gzip -9 -c "$REPO_ROOT/Packages" > "$REPO_ROOT/Packages.gz"
 apt-ftparchive \
-    -o APT::FTPArchive::Release::Origin=DebianZFSInstaller \
-    -o APT::FTPArchive::Release::Label=DebianZFSInstaller \
+    -o APT::FTPArchive::Release::Origin=Nortica \
+    -o APT::FTPArchive::Release::Label=Nortica \
     -o APT::FTPArchive::Release::Suite=trixie \
     -o APT::FTPArchive::Release::Codename=trixie \
     -o APT::FTPArchive::Release::Components=main \
@@ -113,26 +111,26 @@ if [[ ! -s $REPO_ROOT/debootstrap-trixie-amd64.tar ]]; then
 fi
 
 mapfile -t live_packages < <(bash "$IMAGE_ROOT/package-manifest.sh" live)
-printf '%s\n' "${live_packages[@]}" > "$CONFIG_ROOT/config/package-lists/debianzfs.list.chroot"
+printf '%s\n' "${live_packages[@]}" > "$CONFIG_ROOT/config/package-lists/nortica.list.chroot"
 printf 'deb http://deb.debian.org/debian %s-backports main contrib non-free non-free-firmware\n' \
     "$RELEASE" > "$CONFIG_ROOT/config/archives/debian-backports.list.chroot"
 rsync -a --exclude='/.git/' --exclude='/AGENTS.md' --exclude='/dist/' \
     --exclude='/tests/' --exclude='/image/' --exclude='__pycache__/' --exclude='*.pyc' \
     --exclude='/.image-build-work/' \
     --exclude='/.agents/' --exclude='/.aws/' --exclude='/.codex/' \
-    "$ROOT/" "$CONFIG_ROOT/config/includes.chroot/opt/debianzfs-install/"
-rm -rf "$CONFIG_ROOT/config/includes.chroot/opt/debianzfs-install/debianzfs-config"
+    "$ROOT/" "$CONFIG_ROOT/config/includes.chroot/opt/nortica-install/"
+rm -rf "$CONFIG_ROOT/config/includes.chroot/opt/nortica-install/config"
 git clone --local --no-hardlinks "$CONFIG_SOURCE_DIR" \
-    "$CONFIG_ROOT/config/includes.chroot/opt/debianzfs-install/debianzfs-config"
+    "$CONFIG_ROOT/config/includes.chroot/opt/nortica-install/config"
 git clone --local --no-hardlinks "$CONFIG_SOURCE_DIR" \
-    "$CONFIG_ROOT/config/includes.chroot/opt/debianzfs-config"
-install -D -m 644 "$IMAGE_ROOT/live-assets/debianzfs_install.png" \
-    "$CONFIG_ROOT/config/includes.chroot/usr/share/pixmaps/debianzfs_install.png"
-install -D -m 644 "$IMAGE_ROOT/live-assets/debianzfs-install.desktop" \
-    "$CONFIG_ROOT/config/includes.chroot/usr/share/debianzfs-live/debianzfs-install.desktop"
-install -d "$CONFIG_ROOT/config/includes.chroot/opt/debianzfs-install/cache"
-cp -a "$REPO_ROOT/." "$CONFIG_ROOT/config/includes.chroot/opt/debianzfs-install/cache/"
-cat > "$CONFIG_ROOT/config/hooks/normal/0100-debianzfs-live.hook.chroot" <<'HOOK'
+    "$CONFIG_ROOT/config/includes.chroot/opt/nortica-config"
+install -D -m 644 "$IMAGE_ROOT/live-assets/nortica-install.png" \
+    "$CONFIG_ROOT/config/includes.chroot/usr/share/pixmaps/nortica-install.png"
+install -D -m 644 "$IMAGE_ROOT/live-assets/nortica-install.desktop" \
+    "$CONFIG_ROOT/config/includes.chroot/usr/share/nortica-live/nortica-install.desktop"
+install -d "$CONFIG_ROOT/config/includes.chroot/opt/nortica-install/cache"
+cp -a "$REPO_ROOT/." "$CONFIG_ROOT/config/includes.chroot/opt/nortica-install/cache/"
+cat > "$CONFIG_ROOT/config/hooks/normal/0100-nortica-live.hook.chroot" <<'HOOK'
 #!/bin/bash
 set -Eeuo pipefail
 set +x
@@ -147,20 +145,20 @@ systemctl --root=/ --no-reload mask \
     networking.service
 install -d -m 755 /etc/tmpfiles.d
 printf '%s\n' 'L+ /etc/resolv.conf - - - - /run/NetworkManager/resolv.conf' \
-    > /etc/tmpfiles.d/debianzfs-network.conf
+    > /etc/tmpfiles.d/nortica-network.conf
 install -d -o liveuser -g liveuser -m 755 /opt/media/wall
 install -o liveuser -g liveuser -m 644 \
-    /opt/debianzfs-install/debianzfs-config/wallpapers/debianzfs_1.png \
-    /opt/media/wall/debianzfs_1.png
+    /opt/nortica-install/config/wallpapers/nortica.png \
+    /opt/media/wall/nortica.png
 install -d -m 755 /etc/sudoers.d
-printf 'liveuser ALL=(root) NOPASSWD: /opt/debianzfs-install/install.sh\n' \
-    > /etc/sudoers.d/debianzfs-live-installer
-chmod 440 /etc/sudoers.d/debianzfs-live-installer
-cat > /usr/local/bin/debianzfs-install <<'EOF'
+printf 'liveuser ALL=(root) NOPASSWD: /opt/nortica-install/install.sh\n' \
+    > /etc/sudoers.d/nortica-live-installer
+chmod 440 /etc/sudoers.d/nortica-live-installer
+cat > /usr/local/bin/nortica-install <<'EOF'
 #!/bin/sh
-exec sudo /opt/debianzfs-install/install.sh "$@"
+exec sudo /opt/nortica-install/install.sh "$@"
 EOF
-chmod 755 /usr/local/bin/debianzfs-install
+chmod 755 /usr/local/bin/nortica-install
 install -d -m 755 /etc/systemd/system/getty@tty1.service.d
 cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<'EOF'
 [Service]
@@ -168,18 +166,18 @@ ExecStart=
 ExecStart=-/sbin/agetty --autologin liveuser --noclear %I $TERM
 EOF
 install -d -o liveuser -g liveuser -m 755 /home/liveuser/.local
-git clone --local --no-hardlinks /opt/debianzfs-config \
-    /home/liveuser/.local/debianzfs-config
-git -C /home/liveuser/.local/debianzfs-config remote set-url origin \
-    https://github.com/DebianZFS/config.git
-git -C /home/liveuser/.local/debianzfs-config checkout -B main HEAD
-git -C /home/liveuser/.local/debianzfs-config config branch.main.remote origin
-git -C /home/liveuser/.local/debianzfs-config config branch.main.merge refs/heads/main
-chown -R liveuser:liveuser /home/liveuser/.local/debianzfs-config
+git clone --local --no-hardlinks /opt/nortica-config \
+    /home/liveuser/.local/nortica-config
+git -C /home/liveuser/.local/nortica-config remote set-url origin \
+    https://github.com/Nortica-Linux/config.git
+git -C /home/liveuser/.local/nortica-config checkout -B main HEAD
+git -C /home/liveuser/.local/nortica-config config branch.main.remote origin
+git -C /home/liveuser/.local/nortica-config config branch.main.merge refs/heads/main
+chown -R liveuser:liveuser /home/liveuser/.local/nortica-config
 GPU_DRIVER=intel VM_GUEST=none VM_SOFTWARE_RENDERING=false \
-    DEBIANZFS_CONFIG_DIR=/home/liveuser/.local/debianzfs-config \
-    bash /opt/debianzfs-install/deploy/deploy.sh --chroot liveuser
-python3 /opt/debianzfs-install/deploy/scripts/disable-live-lock.py \
+    NORTICA_CONFIG_DIR=/home/liveuser/.local/nortica-config \
+    bash /opt/nortica-install/deploy/deploy.sh --chroot liveuser
+python3 /opt/nortica-install/deploy/scripts/disable-live-lock.py \
     /home/liveuser/.local/state/noctalia/settings.toml
 chown liveuser:liveuser /home/liveuser/.local/state/noctalia/settings.toml
 printf 'FRAMEBUFFER=y\n' > /etc/initramfs-tools/conf.d/plymouth
@@ -187,35 +185,35 @@ plymouth-set-default-theme spinner
 update-initramfs -u -k all
 install -d -o liveuser -g liveuser -m 755 /home/liveuser/.local/share/applications
 install -o liveuser -g liveuser -m 644 \
-    /usr/share/debianzfs-live/debianzfs-install.desktop \
-    /home/liveuser/.local/share/applications/debianzfs-install.desktop
+    /usr/share/nortica-live/nortica-install.desktop \
+    /home/liveuser/.local/share/applications/nortica-install.desktop
 HOOK
-chmod 755 "$CONFIG_ROOT/config/hooks/normal/0100-debianzfs-live.hook.chroot"
+chmod 755 "$CONFIG_ROOT/config/hooks/normal/0100-nortica-live.hook.chroot"
 
 cd "$CONFIG_ROOT"
 python3 "$IMAGE_ROOT/prepare-boot-menu.py" \
-    "$CONFIG_SOURCE_DIR/wallpapers/debianzfs_1.png" "$CONFIG_ROOT/config/bootloaders"
+    "$CONFIG_SOURCE_DIR/wallpapers/nortica.png" "$CONFIG_ROOT/config/bootloaders"
 lb config \
     --distribution "$RELEASE" \
     --architectures amd64 \
     --binary-images iso-hybrid \
-    --bootappend-live 'boot=live components quiet splash hostname=debianzfs username=liveuser' \
+    --bootappend-live 'boot=live components quiet splash hostname=nortica username=liveuser' \
     --archive-areas 'main contrib non-free non-free-firmware' \
     --apt-recommends false \
     --apt-indices false \
     --debian-installer false \
     --memtest none \
-    --iso-application 'Debian ZFS Installer' \
-    --iso-publisher 'Debian ZFS Installer' \
-    --iso-volume 'DEBIANZFS'
+    --iso-application 'Nortica' \
+    --iso-publisher 'Nortica' \
+    --iso-volume 'NORTICA'
 lb build
 
 install -d "$ROOT/dist"
-find "$CONFIG_ROOT" -maxdepth 1 -type f -name '*.iso' -exec install -m 644 {} "$ROOT/dist/debianzfs-live-amd64.iso" \;
-[[ -s "$ROOT/dist/debianzfs-live-amd64.iso" ]] || { echo 'live-build produced no ISO.' >&2; exit 1; }
+find "$CONFIG_ROOT" -maxdepth 1 -type f -name '*.iso' -exec install -m 644 {} "$ROOT/dist/nortica-live-amd64.iso" \;
+[[ -s "$ROOT/dist/nortica-live-amd64.iso" ]] || { echo 'live-build produced no ISO.' >&2; exit 1; }
 (
     cd "$ROOT/dist"
-    sha256sum debianzfs-live-amd64.iso > SHA256SUMS
+    sha256sum nortica-live-amd64.iso > SHA256SUMS
 )
-printf 'Built %s (%s bytes).\n' "$ROOT/dist/debianzfs-live-amd64.iso" \
-    "$(stat -c %s "$ROOT/dist/debianzfs-live-amd64.iso")"
+printf 'Built %s (%s bytes).\n' "$ROOT/dist/nortica-live-amd64.iso" \
+    "$(stat -c %s "$ROOT/dist/nortica-live-amd64.iso")"

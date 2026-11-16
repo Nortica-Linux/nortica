@@ -23,13 +23,13 @@ if [[ $CHROOT_MODE == true ]]; then
     CONFIG_DIR="$TARGET_HOME/.config"
     DATA_DIR="$TARGET_HOME/.local/share"
     CACHE_DIR="$TARGET_HOME/.cache"
-    STATE_DIR="$TARGET_HOME/.local/state/debian-deploy"
+    STATE_DIR="$TARGET_HOME/.local/state/nortica"
 else
     TARGET_HOME=$HOME
     CONFIG_DIR=${XDG_CONFIG_HOME:-$HOME/.config}
     DATA_DIR=${XDG_DATA_HOME:-$HOME/.local/share}
     CACHE_DIR=${XDG_CACHE_HOME:-$HOME/.cache}
-    STATE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/debian-deploy
+    STATE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/nortica
 fi
 # A root chroot invocation never sources user-writable shell code as root.
 # Settings are read as data and validated below; environment overrides win.
@@ -169,7 +169,7 @@ as_root apt-get install -y --no-install-recommends ca-certificates curl python3
 as_root python3 "$REPO_DIR/scripts/debian-sources.py" /etc/apt --write
 
 printf 'Preparing the Noctalia repository...\n'
-if [[ -n ${DEBIANZFS_APT_CACHE:-} && -s /etc/apt/sources.list.d/debianzfs-image-cache.list ]]; then
+if [[ -n ${NORTICA_APT_CACHE:-} && -s /etc/apt/sources.list.d/nortica-image-cache.list ]]; then
     printf 'Using the package repository bundled with the live image.\n'
 else
     curl --fail --location --retry 3 --output "$WORK_DIR/nickh-archive-keyring.deb" \
@@ -221,9 +221,9 @@ done
 printf 'Configuring graphics and login shell...\n'
 if [[ $GPU_DRIVER == nvidia ]]; then
     printf '%s\n' 'options nvidia_drm modeset=1 fbdev=1' > "$WORK_DIR/nvidia.conf"
-    as_root install -D -m 644 "$WORK_DIR/nvidia.conf" /etc/modprobe.d/debian-deploy-nvidia.conf
-elif [[ -e /etc/modprobe.d/debian-deploy-nvidia.conf ]]; then
-    as_root rm /etc/modprobe.d/debian-deploy-nvidia.conf
+    as_root install -D -m 644 "$WORK_DIR/nvidia.conf" /etc/modprobe.d/nortica-nvidia.conf
+elif [[ -e /etc/modprobe.d/nortica-nvidia.conf ]]; then
+    as_root rm /etc/modprobe.d/nortica-nvidia.conf
 fi
 if [[ $CHROOT_MODE != true ]]; then as_root update-initramfs -u -k all; fi
 [[ $USERSHELL == /* && -x $USERSHELL ]] || die "Invalid shell: $USERSHELL"
@@ -232,10 +232,10 @@ as_root chsh -s "$USERSHELL" "$LOGIN_USER"
 user_environment=(env -i HOME="$TARGET_HOME" USER="$LOGIN_USER" LOGNAME="$LOGIN_USER"
     PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 SHELL="$USERSHELL"
     XDG_CONFIG_HOME="$CONFIG_DIR" XDG_DATA_HOME="$DATA_DIR"
-    XDG_STATE_HOME="${STATE_DIR%/debian-deploy}" XDG_CACHE_HOME="$CACHE_DIR"
+    XDG_STATE_HOME="${STATE_DIR%/nortica}" XDG_CACHE_HOME="$CACHE_DIR"
     GPU_DRIVER="$GPU_DRIVER" VM_GUEST="$VM_GUEST" VM_SOFTWARE_RENDERING="$VM_SOFTWARE_RENDERING" USERSHELL="$USERSHELL"
-    DEBIANZFS_CONFIG_DIR="${DEBIANZFS_CONFIG_DIR:-$TARGET_HOME/.local/debianzfs-config}"
-    DEBIANZFS_SKIP_OPTIONAL_ASSETS="${DEBIANZFS_SKIP_OPTIONAL_ASSETS:-false}")
+    NORTICA_CONFIG_DIR="${NORTICA_CONFIG_DIR:-$TARGET_HOME/.local/nortica-config}"
+    NORTICA_SKIP_OPTIONAL_ASSETS="${NORTICA_SKIP_OPTIONAL_ASSETS:-false}")
 if [[ $CHROOT_MODE == true ]]; then
     runuser -u "$LOGIN_USER" -- "${user_environment[@]}" bash "$REPO_DIR/scripts/user-setup.sh"
 else

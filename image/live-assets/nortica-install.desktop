@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Nortica Install
+Comment=Install Nortica on this computer
+Exec=alacritty --hold -e nortica-install
+Icon=nortica-install
+Terminal=false
+Categories=System;

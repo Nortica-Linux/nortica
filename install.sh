@@ -4,11 +4,11 @@ set -Eeuo pipefail
 set +x
 umask 022
 REPO_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-TARGET=/mnt/debianzfs-install
+TARGET=/mnt/nortica-install
 DEBIAN_RELEASE=trixie
 DEBIAN_MIRROR=https://deb.debian.org/debian
 DEBIAN_COMPONENTS="main contrib non-free-firmware"
-HOST_APT_SOURCE=/etc/apt/sources.list.d/debianzfs-install-host.list
+HOST_APT_SOURCE=/etc/apt/sources.list.d/nortica-install-host.list
 source "$REPO_DIR/lib/ui.sh"
 source "$REPO_DIR/lib/config.sh"
 source "$REPO_DIR/lib/target.sh"
@@ -264,7 +264,7 @@ install_base_system() {
     mkdir -p "$TARGET/usr/sbin"
     install_target_policy
     DEBIAN_ARCH="${DEBIAN_ARCH:-$(dpkg --print-architecture)}"
-    bootstrap_debian /opt/debianzfs-install/cache/debootstrap-trixie-amd64.tar
+    bootstrap_debian /opt/nortica-install/cache/debootstrap-trixie-amd64.tar
     ok "Installed Debian base system"
 
     mkdir -p "${TARGET}/etc/apt/sources.list.d" "${TARGET}/etc/zfs" "${TARGET}/etc/initramfs-tools/conf.d" "${TARGET}/etc/initramfs-tools/hooks"
@@ -492,9 +492,9 @@ main() {
     # Live udev/logind use slave mount namespaces. If target mounts propagate
     # into them, they can retain invisible references after our unmounts and
     # prevent pool export. Own a recursively private namespace from the start.
-    if [[ ${DEBIANZFS_PRIVATE_MOUNTS:-false} != true ]]; then
+    if [[ ${NORTICA_PRIVATE_MOUNTS:-false} != true ]]; then
         exec unshare --mount --propagation private \
-            env DEBIANZFS_PRIVATE_MOUNTS=true bash "$REPO_DIR/install.sh" "$@"
+            env NORTICA_PRIVATE_MOUNTS=true bash "$REPO_DIR/install.sh" "$@"
     fi
     detect_boot_mode
     ui_init
@@ -502,7 +502,7 @@ main() {
     trap 'exit 130' INT
     trap 'exit 143' TERM
     trap 'exit "$?"' ERR
-    exec 9>/run/debianzfs-install.lock
+    exec 9>/run/nortica-install.lock
     flock -n 9 || { failhard 'Another installer is running.'; return 1; }
     run_guided_installation
 }

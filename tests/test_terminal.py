@@ -21,7 +21,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 class TerminalTests(unittest.TestCase):
     def screen(self, body, resize=False, expected=0):
-        with tempfile.TemporaryDirectory(prefix='debianzfs-terminal-') as temp:
+        with tempfile.TemporaryDirectory(prefix='nortica-terminal-') as temp:
             root = Path(temp)
             master, slave = pty.openpty()
             original_mode = termios.tcgetattr(slave)
@@ -82,7 +82,7 @@ while [[ ! -e $TEST_ROOT/release ]]; do sleep .02; done
 
     def assert_clean_stage(self, lines, expected):
         text = '\n'.join(lines)
-        self.assertEqual(text.count('Debian-ZFS-Installer'), 1, text)
+        self.assertEqual(text.count('Nortica Installer'), 1, text)
         self.assertEqual(text.count('Log:'), 1, text)
         self.assertEqual(lines[4].strip(), '', text)
         self.assertEqual(lines[5].strip(), '[short]', text)

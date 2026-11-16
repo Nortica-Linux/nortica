@@ -6,9 +6,9 @@ REPO_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 # shellcheck source=deploy/vars.sh
 source "$REPO_DIR/vars.sh"
 CONFIG_DIR=${XDG_CONFIG_HOME:-$HOME/.config}
-STATE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/debian-deploy
-printf 'Installing user configuration from debianzfs-config...\n'
-CONFIG_REPO_DIR=${DEBIANZFS_CONFIG_DIR:-$HOME/.local/debianzfs-config}
+STATE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/nortica
+printf 'Installing user configuration from Nortica config...\n'
+CONFIG_REPO_DIR=${NORTICA_CONFIG_DIR:-$HOME/.local/nortica-config}
 [[ -x $CONFIG_REPO_DIR/deploy.sh ]] || {
     printf 'Missing config repository or deploy script: %s/deploy.sh\n' "$CONFIG_REPO_DIR" >&2
     exit 1
@@ -21,9 +21,9 @@ case $profile in intel|amd|nvidia|nouveau|vm|vm-software) ;;
 esac
 profile_path="$CONFIG_REPO_DIR/dotfiles/hypr/profiles/$profile.lua"
 [[ -f $profile_path ]] || { printf 'Missing hardware profile: %s\n' "$profile_path" >&2; exit 1; }
-mkdir -p -- "$CONFIG_DIR/debian-deploy"
+mkdir -p -- "$CONFIG_DIR/nortica"
 # Replace the old generated file as well as a previous profile selection.
-ln -sfnT -- "$profile_path" "$CONFIG_DIR/debian-deploy/graphics.lua"
+ln -sfnT -- "$profile_path" "$CONFIG_DIR/nortica/graphics.lua"
 
 "$CONFIG_REPO_DIR/deploy.sh"
 # Shared by installed desktops and the live image, running as the owning user.
@@ -40,16 +40,16 @@ EOF
 chmod 600 "$STATE_DIR/settings.sh"
 # A managed block in .zprofile runs only once per interactive login on TTY1.
 # Do not exec: ending Hyprland returns to the same shell. No automatic login.
-if ! grep -q '^# BEGIN debian-deploy TTY1$' "$HOME/.zprofile" 2>/dev/null; then
+if ! grep -q '^# BEGIN nortica TTY1$' "$HOME/.zprofile" 2>/dev/null; then
     cat >> "$HOME/.zprofile" <<'EOF'
 
-# BEGIN debian-deploy TTY1
+# BEGIN nortica TTY1
 if [[ -o interactive && -o login && -z ${SSH_CONNECTION:-} && -z ${SSH_TTY:-} &&
       -z ${DISPLAY:-} && -z ${WAYLAND_DISPLAY:-} && -z ${HYPRLAND_INSTANCE_SIGNATURE:-} &&
       ${SHLVL:-1} -eq 1 && $(tty) == /dev/tty1 ]]; then
     start-hyprland
 fi
-# END debian-deploy TTY1
+# END nortica TTY1
 EOF
 fi
 printf 'User resources configured for %s in %s.\n' "$(id -un)" "$HOME"

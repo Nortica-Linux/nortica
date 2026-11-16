@@ -1,81 +1,35 @@
-# Debian ZFS live image
+# Image build
 
-`build.sh` builds the amd64 Debian 13 Trixie UEFI live ISO. The live desktop is
-configured by the bundled `deploy/deploy.sh`, package arrays in
-`deploy/vars.sh`, and the newest published version tag in
-`DebianZFS/config` for user files. The installer submodule supplies
-a fallback snapshot; image builds resolve the latest `v*` config tag at build
-time and bundle that tagged checkout for both live and installed users.
-The live session uses the Intel
-profile for its generic Mesa desktop; the ISO's local APT repository includes
-all five installer GPU profiles, including both VM guest integrations.
-The live user's Noctalia session uses the bundled plugin-free Gruvbox settings
-and Debian wallpaper at `/opt/media/wall/debianzfs_1.png`.
-NetworkManager starts with wired DHCP, and `wpa_supplicant` provides Wi-Fi
-configuration through Noctalia's network panel. The image restores
-`/etc/resolv.conf` at boot as a link to NetworkManager's runtime resolver file.
-Noctalia auto-lock is disabled for the autologin live user. **DebianZFS Help**
-opens the documentation site, and **DebianZFS Ticket** opens the pre-labeled
-GitHub issue form; both have bundled icons and are also installed in the
-system built by the installer. A live-only **DebianZFS Install** application
-launcher opens the installer in Alacritty and leaves the terminal open when it
-exits. It is available from the Hyprland app launcher and is not placed in a
-desktop folder.
+Run [`build.sh`](build.sh) in a disposable Debian 13 Trixie amd64 environment
+as root. The Docker command in the [root README](../README.md) provides one.
+Never run the builder directly on a workstation: it changes APT sources and
+installs packages in its build environment.
 
-The ISO's GRUB and Syslinux menus use the selected config release's
-`wallpapers/debianzfs_1.png`. `prepare-boot-menu.py` uses Pillow in the build
-container to generate fitted, dimmed 800×600 GRUB and 640×480 Syslinux
-backgrounds; readable menu templates are under `image/boot-menu/`. Ordinary
-live-build menu entries, firmware settings, and recovery options are retained.
+- Output: `dist/nortica-live-amd64.iso` and `dist/SHA256SUMS`.
+- Working files: `/tmp/nortica-live-build`, overridable with `NORTICA_BUILD_DIR`.
+- Desktop packages: [`deploy/vars.sh`](../deploy/vars.sh).
+- User configuration: the exact commit checked out in the `config` submodule.
+  Initialize it with `git submodule update --init --recursive` before building.
+- Boot menus: [`boot-menu/`](boot-menu/); backgrounds use the bundled wallpaper.
 
-The live system uses Debian's stock Plymouth `spinner` theme with `quiet splash`.
-The image hook selects the theme and rebuilds its initramfs. The same theme is
-installed for clean and desktop target installations, before their final
-initramfs rebuild. It does not use the wallpaper. Press Escape for boot output.
-Installed systems retain the existing ZFSBootMenu selection and encryption
-unlock screens before Plymouth starts; no ZFSBootMenu EFI image is customized.
-Graphical output depends on the firmware/framebuffer and GPU driver. Preparing
-these files does not update an existing ISO; rebuild the image to include them.
+The image includes a Debian bootstrap archive and a local APT repository for
+all installer GPU profiles. Installation still needs network access. Packages
+are resolved at build time; builds are not byte-for-byte reproducible.
 
-Intel Wi-Fi, Realtek and MediaTek firmware are included in the live image
-and installed by default in both clean and desktop targets. Noctalia's bar
-shows the battery widget between brightness and the session menu in live
-and installed desktops (battery information requires supported hardware).
+The live account is `liveuser`. TTY1 autologin starts Hyprland; the installer
+runs through a restricted sudo launcher. Installed accounts do not autologin.
+The live desktop uses NetworkManager, Mesa and the stock Plymouth spinner.
 
-When installing with a custom Debian mirror, the installer downloads a fresh
-bootstrap from that mirror. The bundled bootstrap archive is only used with
-its matching `https://deb.debian.org/debian` mirror; its APT indexes cannot be
-reused with a different mirror hostname or path.
+## Releases
 
-The image also contains the installer and a tarball for debootstrap's Debian
-base packages. During installation, the ISO is mounted read-only into the
-target chroot and APT pins its matching package repository, so base, kernel,
-ZFS and desktop packages use the bundled archives. A standard Debian live
-image without this cache follows the existing mirror-based installation path.
-
-The build needs a root Debian 13 Trixie amd64 environment with network access.
-The GitHub Actions workflow provides it in a privileged Debian container. To
-build locally, use a disposable Debian Trixie VM or container and mount this
-checkout at `/workspace`:
+Pushing a `v*` tag runs [the image workflow](../.github/workflows/live-image.yml)
+and publishes the ISO and checksums. Large images are split into numbered
+assets. Download every part and `SHA256SUMS`, then run:
 
 ```sh
-docker run --rm --privileged \
-  --volume "$PWD:/workspace" \
-  --workdir /workspace \
-  debian:trixie-slim \
-  bash /workspace/image/build.sh
+cat nortica-live-amd64.iso.part.* > nortica-live-amd64.iso
+sha256sum -c SHA256SUMS
 ```
 
-The build downloads current Debian, backports and Noctalia packages, so the
-result reflects repository configuration and package availability at build
-time. `image/package-manifest.sh` reads `deploy/vars.sh` directly; it does not
-maintain a second desktop package list. Generated files are written to ignored
-`dist/` and `/tmp/debianzfs-live-build/`.
-
-Push a version tag matching `v*` to run the release workflow. It attaches the
-ISO and `SHA256SUMS` to a GitHub Release. If the ISO reaches 1,900 MiB, CI splits
-the release copy into 1,800 MiB parts; the Actions artifact retains the complete
-ISO. Release assets include instructions to reassemble split files.
-
-The build and tests do not establish support for every physical GPU. Secure Boot
-must be disabled, matching the installer requirements.
+Only x86-64 UEFI with Secure Boot disabled is supported. Image generation does
+not establish physical GPU compatibility; see [validation](../tests/README.md).

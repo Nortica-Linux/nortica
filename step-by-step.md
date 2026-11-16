@@ -1,13 +1,20 @@
 # Installation walkthrough
 
-1. Download an official [Debian 13 amd64 live image](https://www.debian.org/CD/live/).
-   Disable Secure Boot in firmware, then boot it in UEFI mode. BIOS mode is
-   displayed, then stops because support is pending. Use live media rather than
-   an installer rescue shell.
-2. Connect the live environment to the internet (wired or Wi-Fi), then install
-   `git`, `ca-certificates` and `curl`. Clone this repository's `v1.0.0` branch
-   with submodules (`git clone --recurse-submodules ...`).
-3. Run `sudo ./install.sh`. Quick local checks lead straight to configuration;
+1. Boot the Nortica ISO in x86-64 UEFI mode with Secure Boot disabled.
+   Legacy BIOS installation is not supported. Alternatively, use an official
+   [Debian 13 amd64 live image](https://www.debian.org/CD/live/), not an installer
+   rescue shell.
+2. Connect to the internet using wired networking or the Noctalia Wi-Fi panel.
+   On standard Debian live media, install `git`, `ca-certificates` and `curl`,
+   then clone the source:
+
+   ```sh
+   git clone --recurse-submodules https://github.com/Nortica-Linux/nortica.git
+   cd nortica
+   ```
+
+3. Open **Nortica Install** or run `nortica-install`. On standard Debian live
+   media, run `sudo ./install.sh` from the checkout. Local checks lead to configuration;
    no package updates or downloads run before you finish the questions. The
    display identifies the detected boot mode and log location. If Secure Boot
    is enabled, reboot and disable it in UEFI firmware before continuing.
@@ -30,7 +37,7 @@
    disk-safety check. There are no further configuration questions.
 8. Follow the colored stage heading and up to five lines of current output.
    The previous stage's output clears automatically. Full logs remain in
-   `/var/log/debianzfs-install/` in the live system; their path is displayed.
+   `/var/log/nortica-install/` in the live system; their path is displayed.
    There is no log VT or TTY switching. Failure stops installation and retains
    the log. `NO_COLOR=1` disables colors if preferred.
 9. Wait for the explicit success message after unmounting and pool export.
@@ -38,10 +45,10 @@
    log in using your configured username and account password.
 10. With desktop deployment, log in on TTY1: Hyprland starts after the normal
     login. Exiting returns to your shell. Other TTYs and SSH remain shells.
-    Keep `~/.local/debianzfs-config`. After `git pull`, run
-    `~/.local/debianzfs-config/deploy.sh` as your regular user to refresh the
+    Keep `~/.local/nortica-config`. After `git pull`, run
+    `~/.local/nortica-config/deploy.sh` as your regular user to refresh the
     links and desktop shortcuts. Saved graphics settings are in
-    `~/.local/state/debian-deploy/settings.sh`.
+    `~/.local/state/nortica/settings.sh`.
 
 If installation fails, read the failed stage and complete live log before
 rebooting. Target logs contain the run through pre-unmount cleanup; only the

@@ -35,7 +35,7 @@ case $name in
         done ;;
     systemctl)
         [[ $* == *--root=/* && $* == *--no-reload* && $* != *'--user'* ]] || exit 91
-        printf '%s\n' "$*" >> /tmp/debianzfs-mock-systemctl ;;
+        printf '%s\n' "$*" >> /tmp/nortica-mock-systemctl ;;
     update-initramfs) [[ $EUID == 0 ]] || exit 92 ;;
     *) : ;;
 esac
@@ -50,27 +50,29 @@ for profile in intel amd nvidia nouveau vm vm-software; do
     gpu=$profile
     software=false
     if [[ $profile == vm-software ]]; then gpu=vm; software=true; fi
-    destination=/home/fixture/.local/debianzfs-config
+    destination=/home/fixture/.local/nortica-config
     mkdir -p "$destination"
-    cp -a "$REPO/debianzfs-config/." "$destination/"
+    cp -a "$REPO/config/." "$destination/"
     chown -R fixture:fixture /home/fixture
     # NVIDIA must inspect these target kernels, not the container host kernel.
     mkdir -p /usr/src/linux-headers-6.12.99-fixture
     touch /boot/vmlinuz-6.12.99-fixture
     PATH="$TEST/bin:$PATH" GPU_DRIVER=$gpu VM_GUEST=qemu VM_SOFTWARE_RENDERING=$software \
-        DEBIANZFS_CONFIG_DIR="$destination" DEBIANZFS_SKIP_OPTIONAL_ASSETS=true \
+        NORTICA_CONFIG_DIR="$destination" NORTICA_SKIP_OPTIONAL_ASSETS=true \
         bash "$REPO/deploy/deploy.sh" --chroot fixture
     [[ $(getent passwd fixture | cut -d: -f7) == /usr/bin/zsh ]]
-    [[ $(stat -c %U /home/fixture/.config/debian-deploy/graphics.lua) == fixture ]]
-    [[ $(readlink /home/fixture/.config/debian-deploy/graphics.lua) == "$destination/dotfiles/hypr/profiles/$profile.lua" ]]
-    [[ $(stat -Lc %U /home/fixture/.config/debian-deploy/graphics.lua) == fixture ]]
+    [[ $(stat -c %U /home/fixture/.config/nortica/graphics.lua) == fixture ]]
+    [[ $(readlink /home/fixture/.config/nortica/graphics.lua) == "$destination/dotfiles/hypr/profiles/$profile.lua" ]]
+    [[ $(stat -Lc %U /home/fixture/.config/nortica/graphics.lua) == fixture ]]
     [[ $(stat -c %U /home/fixture/.local/state/noctalia/settings.toml) == fixture ]]
     [[ $(readlink /home/fixture/.config/hypr) == "$destination/dotfiles/hypr" ]]
     [[ $(readlink /home/fixture/.zprofile) == "$destination/dotfiles/zsh/zprofile" ]]
+    # User setup must not append a second login guard through this symlink.
+    cmp "$REPO/config/dotfiles/zsh/zprofile" "$destination/dotfiles/zsh/zprofile"
     [[ ! -e /home/fixture/Desktop ]]
     [[ $(readlink /home/fixture/.config/systemd/user/sockets.target.wants/pipewire.socket) == /usr/lib/systemd/user/pipewire.socket ]]
-    grep -qx "GPU_DRIVER=$gpu" /home/fixture/.local/state/debian-deploy/settings.sh
-    grep -qx "VM_SOFTWARE_RENDERING=$software" /home/fixture/.local/state/debian-deploy/settings.sh
+    grep -qx "GPU_DRIVER=$gpu" /home/fixture/.local/state/nortica/settings.sh
+    grep -qx "VM_SOFTWARE_RENDERING=$software" /home/fixture/.local/state/nortica/settings.sh
     if [[ -f $TEST/baseline-policy ]]; then
         cmp "$TEST/baseline-policy" /usr/sbin/policy-rc.d
     else
@@ -89,7 +91,7 @@ exit 17
 EOF
 chmod 755 "$TEST/bin/apt-get"
 if PATH="$TEST/bin:$PATH" GPU_DRIVER=vm VM_GUEST=none \
-    DEBIANZFS_CONFIG_DIR="$destination" DEBIANZFS_SKIP_OPTIONAL_ASSETS=true \
+    NORTICA_CONFIG_DIR="$destination" NORTICA_SKIP_OPTIONAL_ASSETS=true \
     bash "$REPO/deploy/deploy.sh" --chroot fixture; then
     echo 'Expected package failure' >&2; exit 1
 else
@@ -125,7 +127,11 @@ for guard in clean ssh nested wayland display signature noninteractive; do
         print RETURNED-TO-SHELL
     ')
     [[ $result == *RETURNED-TO-SHELL* ]]
-    if [[ $guard == clean ]]; then [[ $result == *STARTED* ]]; else [[ $result != *STARTED* ]]; fi
+    if [[ $guard == clean ]]; then
+        [[ $(grep -c '^STARTED$' <<< "$result") == 1 ]]
+    else
+        [[ $result != *STARTED* ]]
+    fi
 done
 echo 'PASS: actual Zsh TTY1 guard, session exclusions, and compositor return'
 # Offline enablement against fixture units uses real systemctl, no system bus.

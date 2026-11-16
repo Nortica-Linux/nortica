@@ -1,4 +1,4 @@
-name: Build Debian ZFS live image
+name: Build Nortica image
 
 on:
   push:
@@ -18,9 +18,9 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Build Debian 13 live image
+      - name: Build image
         run: |
-          docker run --rm --privileged \
+          docker run --rm --privileged --network host \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
             debian:trixie-slim \
@@ -32,19 +32,19 @@ jobs:
         run: |
           set -Eeuo pipefail
           mkdir -p release-assets
-          cp dist/debianzfs-live-amd64.iso dist/SHA256SUMS release-assets/
-          size=$(stat -c %s release-assets/debianzfs-live-amd64.iso)
+          cp dist/nortica-live-amd64.iso dist/SHA256SUMS release-assets/
+          size=$(stat -c %s release-assets/nortica-live-amd64.iso)
           if ((size >= 1900 * 1024 * 1024)); then
-            mv release-assets/debianzfs-live-amd64.iso release-assets/debianzfs-live-amd64.iso.full
+            mv release-assets/nortica-live-amd64.iso release-assets/nortica-live-amd64.iso.full
             split --bytes=1800M --numeric-suffixes=0 --suffix-length=3 \
-              release-assets/debianzfs-live-amd64.iso.full \
-              release-assets/debianzfs-live-amd64.iso.part.
-            rm release-assets/debianzfs-live-amd64.iso.full
+              release-assets/nortica-live-amd64.iso.full \
+              release-assets/nortica-live-amd64.iso.part.
+            rm release-assets/nortica-live-amd64.iso.full
             cat > release-assets/REASSEMBLE.txt <<'EOF'
           The ISO was split into GitHub Release assets to meet the per-file size limit.
-          Put every debianzfs-live-amd64.iso.part.* file in one directory and run:
+          Put every nortica-live-amd64.iso.part.* file in one directory and run:
 
-              cat debianzfs-live-amd64.iso.part.* > debianzfs-live-amd64.iso
+              cat nortica-live-amd64.iso.part.* > nortica-live-amd64.iso
               sha256sum -c SHA256SUMS
           EOF
           fi
@@ -52,9 +52,9 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: debianzfs-live-${{ github.ref_name }}
+          name: nortica-live-${{ github.ref_name }}
           path: |
-            dist/debianzfs-live-amd64.iso
+            dist/nortica-live-amd64.iso
             dist/SHA256SUMS
           if-no-files-found: error
           compression-level: 0

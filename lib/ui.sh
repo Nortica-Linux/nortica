@@ -33,7 +33,7 @@ ui_init() {
     exec 3>&1
     UI_STTY=$(stty -g <&3 2>/dev/null || true)
     CURRENT_STAGE='Setup'
-    LOG_DIR=${LOG_DIR:-/var/log/debianzfs-install}
+    LOG_DIR=${LOG_DIR:-/var/log/nortica-install}
     install -d -m 700 "$LOG_DIR"
     LOG_FILE="$LOG_DIR/install-$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
     : > "$LOG_FILE"
@@ -54,7 +54,7 @@ frame_line() {
 separator() { frame_line NC '────────────────────────────────────────────'; }
 header_content() {
     separator
-    frame_line G "Debian-ZFS-Installer | Boot mode: $BOOT_MODE"
+    frame_line G "Nortica Installer | Boot mode: $BOOT_MODE"
     separator
 }
 
@@ -106,7 +106,7 @@ render_stage() {
             frame_line LB "Log: $LOG_FILE"
             printf '\n'
         elif ((UI_ROWS >= 6)); then
-            frame_line G "Debian-ZFS-Installer | Boot mode: $BOOT_MODE"
+            frame_line G "Nortica Installer | Boot mode: $BOOT_MODE"
         fi
         if ((UI_ROWS >= 6)); then
             frame_line P "[$CURRENT_STAGE]"

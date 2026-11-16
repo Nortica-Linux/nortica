@@ -33,7 +33,7 @@ class SourcesTests(unittest.TestCase):
                     "Types: deb\nURIs: http://debian.lagis.at/debian\nSuites: trixie\nComponents: non-free\n")
                 third_party = "Types: deb\nURIs: https://example.org/repo\nSuites: trixie\nComponents: main\n"
                 (directory / "third-party.sources").write_text(third_party)
-                cache = "deb [trusted=yes] file:/mnt/debianzfs-cache ./\n"
+                cache = "deb [trusted=yes] file:/mnt/nortica-cache ./\n"
                 (directory / "cache.list").write_text(cache)
                 desired = expected(mirror or "https://deb.debian.org/debian")
                 self.assertEqual(sources.render(apt), desired)

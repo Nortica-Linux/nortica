@@ -1,3 +1,3 @@
-[submodule "debianzfs-config"]
-	path = debianzfs-config
-	url = https://github.com/DebianZFS/config.git
+[submodule "config"]
+	path = config
+	url = https://github.com/Nortica-Linux/config.git

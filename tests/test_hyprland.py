@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 REPO = Path(__file__).resolve().parents[1]
-CONFIG = REPO / "debianzfs-config"
+CONFIG = REPO / "config"
 PROFILES = CONFIG / "dotfiles/hypr/profiles"
 LUA = shutil.which("lua5.4") or shutil.which("lua")
 
@@ -33,7 +33,7 @@ class HyprlandTests(unittest.TestCase):
             settings = home / ".local/state/noctalia/settings.toml"
             settings.parent.mkdir(parents=True)
             shutil.copyfile(CONFIG / "noctalia/settings.toml", settings)
-            selection = home / ".config/debian-deploy/graphics.lua"
+            selection = home / ".config/nortica/graphics.lua"
             selection.parent.mkdir(parents=True)
             selection.write_text("old generated configuration\n")
             for gpu, software, expected in [
@@ -46,7 +46,7 @@ class HyprlandTests(unittest.TestCase):
                     env = dict(os.environ, HOME=str(home),
                                XDG_CONFIG_HOME=str(home / ".config"),
                                XDG_STATE_HOME=str(home / ".local/state"),
-                               DEBIANZFS_CONFIG_DIR=str(checkout), GPU_DRIVER=gpu,
+                               NORTICA_CONFIG_DIR=str(checkout), GPU_DRIVER=gpu,
                                VM_GUEST="none", VM_SOFTWARE_RENDERING=str(software).lower())
                     subprocess.run(["bash", str(REPO / "deploy/scripts/user-setup.sh")],
                                    env=env, check=True, capture_output=True, text=True)
@@ -54,10 +54,10 @@ class HyprlandTests(unittest.TestCase):
                     self.assertEqual(selection.resolve(), checkout / "dotfiles/hypr/profiles" / f"{expected}.lua")
                     self.assertEqual(selection.lstat().st_uid, os.getuid())
                     self.assertEqual(selection.stat().st_uid, os.getuid())
-                    state = home / ".local/state/debian-deploy/settings.sh"
+                    state = home / ".local/state/nortica/settings.sh"
                     self.assertIn(f"GPU_DRIVER={gpu}\n", state.read_text())
                     self.assertEqual(state.stat().st_mode & 0o777, 0o600)
-            self.assertEqual((home / ".zprofile").read_text().count("# BEGIN debian-deploy TTY1"), 1)
+            self.assertEqual((home / ".zprofile").read_text().count("# BEGIN nortica TTY1"), 1)
             selection.unlink()
             (checkout / "dotfiles/hypr/profiles/intel.lua").unlink()
             result = subprocess.run(["bash", str(REPO / "deploy/scripts/user-setup.sh")],
@@ -72,7 +72,7 @@ class HyprlandTests(unittest.TestCase):
             with self.subTest(profile=profile), tempfile.TemporaryDirectory() as temporary:
                 config_home = Path(temporary)
                 if profile:
-                    selection = config_home / "debian-deploy/graphics.lua"
+                    selection = config_home / "nortica/graphics.lua"
                     selection.parent.mkdir()
                     selection.symlink_to(PROFILES / f"{profile}.lua")
                 # Execute real profile code, asserting its merged settings/environment.

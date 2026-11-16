@@ -84,19 +84,19 @@ mount_bundled_apt_cache() {
     # The purpose-built live ISO carries the package closure needed by the
     # installer and all deployment GPU profiles. Standard Debian live media
     # has no cache directory and continues using its configured mirrors.
-    local source=${DEBIANZFS_IMAGE_CACHE:-/opt/debianzfs-install/cache}
+    local source=${NORTICA_IMAGE_CACHE:-/opt/nortica-install/cache}
     [[ -s $source/Packages && -s $source/debootstrap-trixie-amd64.tar ]] || return 0
-    install -d -m 755 "$TARGET/mnt/debianzfs-cache"
+    install -d -m 755 "$TARGET/mnt/nortica-cache"
     install -d -m 755 "$TARGET/etc/apt/preferences.d"
-    mount --bind "$source" "$TARGET/mnt/debianzfs-cache"
-    mount -o remount,bind,ro "$TARGET/mnt/debianzfs-cache"
+    mount --bind "$source" "$TARGET/mnt/nortica-cache"
+    mount -o remount,bind,ro "$TARGET/mnt/nortica-cache"
     IMAGE_CACHE_MOUNTED=true
-    cat > "$TARGET/etc/apt/sources.list.d/debianzfs-image-cache.list" <<'EOF'
-deb [trusted=yes] file:/mnt/debianzfs-cache ./
+    cat > "$TARGET/etc/apt/sources.list.d/nortica-image-cache.list" <<'EOF'
+deb [trusted=yes] file:/mnt/nortica-cache ./
 EOF
-    cat > "$TARGET/etc/apt/preferences.d/debianzfs-image-cache" <<'EOF'
+    cat > "$TARGET/etc/apt/preferences.d/nortica-image-cache" <<'EOF'
 Package: *
-Pin: release o=DebianZFSInstaller
+Pin: release o=Nortica
 Pin-Priority: 1001
 EOF
     printf 'Using the ISO package cache for Debian and desktop packages.\n'
@@ -104,8 +104,8 @@ EOF
 
 remove_bundled_apt_cache_config() {
     [[ ${IMAGE_CACHE_MOUNTED:-false} == true ]] || return 0
-    rm -f "$TARGET/etc/apt/sources.list.d/debianzfs-image-cache.list" \
-        "$TARGET/etc/apt/preferences.d/debianzfs-image-cache"
+    rm -f "$TARGET/etc/apt/sources.list.d/nortica-image-cache.list" \
+        "$TARGET/etc/apt/preferences.d/nortica-image-cache"
 }
 
 configure_networking() {
@@ -145,35 +145,35 @@ deploy_desktop() {
     [[ $DEBIAN_DESKTOP == true ]] || return 0
     local home="/home/$DEBIAN_SUDOUSER"
     install -d -m 755 "$TARGET/opt/media/wall"
-    install -m 644 "$REPO_DIR/debianzfs-config/wallpapers/debianzfs_1.png" \
-        "$TARGET/opt/media/wall/debianzfs_1.png"
+    install -m 644 "$REPO_DIR/config/wallpapers/nortica.png" \
+        "$TARGET/opt/media/wall/nortica.png"
     chroot_run chown -R "$DEBIAN_SUDOUSER:$DEBIAN_SUDOUSER" /opt/media/wall
     install -d -m 755 "$TARGET$home/.local"
-    local config_source=${DEBIANZFS_CONFIG_SOURCE:-$REPO_DIR/debianzfs-config}
-    if [[ -d /opt/debianzfs-config/.git ]]; then
-        config_source=/opt/debianzfs-config
+    local config_source=${NORTICA_CONFIG_SOURCE:-$REPO_DIR/config}
+    if [[ -d /opt/nortica-config/.git ]]; then
+        config_source=/opt/nortica-config
     fi
     git clone --local --no-hardlinks "$config_source" \
-        "$TARGET$home/.local/debianzfs-config"
-    git -C "$TARGET$home/.local/debianzfs-config" remote set-url origin \
-        https://github.com/DebianZFS/config.git
-    git -C "$TARGET$home/.local/debianzfs-config" checkout -B main HEAD
-    git -C "$TARGET$home/.local/debianzfs-config" config branch.main.remote origin
-    git -C "$TARGET$home/.local/debianzfs-config" config branch.main.merge refs/heads/main
+        "$TARGET$home/.local/nortica-config"
+    git -C "$TARGET$home/.local/nortica-config" remote set-url origin \
+        https://github.com/Nortica-Linux/config.git
+    git -C "$TARGET$home/.local/nortica-config" checkout -B main HEAD
+    git -C "$TARGET$home/.local/nortica-config" config branch.main.remote origin
+    git -C "$TARGET$home/.local/nortica-config" config branch.main.merge refs/heads/main
     # The checkout staging directory is created by the root installer. Give
     # its parent to the user too, so user deployment can create ~/.local/share
     # for fonts and other XDG data while running with the target user's HOME.
     chroot_run chown "$DEBIAN_SUDOUSER:$DEBIAN_SUDOUSER" "$home/.local"
-    chroot_run chown -R "$DEBIAN_SUDOUSER:$DEBIAN_SUDOUSER" "$home/.local/debianzfs-config"
-    install -d -m 755 "$TARGET/opt/debianzfs-deploy"
-    cp -a "$REPO_DIR/deploy/." "$TARGET/opt/debianzfs-deploy/"
+    chroot_run chown -R "$DEBIAN_SUDOUSER:$DEBIAN_SUDOUSER" "$home/.local/nortica-config"
+    install -d -m 755 "$TARGET/opt/nortica-deploy"
+    cp -a "$REPO_DIR/deploy/." "$TARGET/opt/nortica-deploy/"
     # VM_GUEST is resolved by the live setup, never by chroot's systemd view.
     chroot_run env GPU_DRIVER="$GPU_DRIVER" VM_GUEST="$VM_GUEST" \
         VM_SOFTWARE_RENDERING="$VM_SOFTWARE_RENDERING" \
-        DEBIANZFS_CONFIG_DIR="$home/.local/debianzfs-config" \
-        DEBIANZFS_APT_CACHE="$( [[ ${IMAGE_CACHE_MOUNTED:-false} == true ]] && printf /mnt/debianzfs-cache )" \
-        bash /opt/debianzfs-deploy/deploy.sh --chroot "$DEBIAN_SUDOUSER"
-    rm -rf -- "$TARGET/opt/debianzfs-deploy"
+        NORTICA_CONFIG_DIR="$home/.local/nortica-config" \
+        NORTICA_APT_CACHE="$( [[ ${IMAGE_CACHE_MOUNTED:-false} == true ]] && printf /mnt/nortica-cache )" \
+        bash /opt/nortica-deploy/deploy.sh --chroot "$DEBIAN_SUDOUSER"
+    rm -rf -- "$TARGET/opt/nortica-deploy"
 }
 
 configure_plymouth() {
@@ -214,8 +214,8 @@ persist_target_log() {
     # A failed export may be retried after the target was already unmounted.
     # Never create log files in the underlying live mountpoint on that retry.
     mountpoint -q "$TARGET" || return 0
-    install -d -m 700 "$TARGET/var/log/debianzfs-install" || return
-    install -m 600 "$LOG_FILE" "$TARGET/var/log/debianzfs-install/" || return
+    install -d -m 700 "$TARGET/var/log/nortica-install" || return
+    install -m 600 "$LOG_FILE" "$TARGET/var/log/nortica-install/" || return
 }
 
 cleanup_target() {
@@ -223,8 +223,8 @@ cleanup_target() {
     # in EXIT and must preserve failures without abandoning safe cleanup.
     local failed=0 path
     restore_target_policy || failed=1
-    if [[ -d $TARGET/opt/debianzfs-deploy ]]; then
-        rm -rf -- "$TARGET/opt/debianzfs-deploy" || failed=1
+    if [[ -d $TARGET/opt/nortica-deploy ]]; then
+        rm -rf -- "$TARGET/opt/nortica-deploy" || failed=1
     fi
     remove_bundled_apt_cache_config || failed=1
     unset USER_PASSWORD ZFS_PASSPHRASE
@@ -232,7 +232,7 @@ cleanup_target() {
         rm -f -- "$WORK_DIR/zroot.key" || failed=1
     fi
     if [[ ${POOL_OWNED:-false} == true ]]; then
-        for path in mnt/debianzfs-cache run sys proc dev boot/efi2 boot/efi; do
+        for path in mnt/nortica-cache run sys proc dev boot/efi2 boot/efi; do
             if mountpoint -q "$TARGET/$path"; then
                 umount -R "$TARGET/$path" || failed=1
             fi

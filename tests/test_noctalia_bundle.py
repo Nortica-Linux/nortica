@@ -10,13 +10,13 @@ import unittest
 
 
 REPO = Path(__file__).resolve().parents[1]
-CONFIG = REPO / "debianzfs-config"
+CONFIG = REPO / "config"
 SETTINGS = CONFIG / "noctalia/settings.toml"
-WALLPAPER = CONFIG / "wallpapers/debianzfs_1.png"
-HELP_LAUNCHER = CONFIG / "scripts/help-shortcuts/desktop-files/debianzfs-help.desktop"
-TICKET_LAUNCHER = CONFIG / "scripts/help-shortcuts/desktop-files/debianzfs-ticket.desktop"
-HELP_ICON = CONFIG / "scripts/help-shortcuts/pngs/debianzfs-help.png"
-TICKET_ICON = CONFIG / "scripts/help-shortcuts/pngs/debianzfs-ticket.png"
+WALLPAPER = CONFIG / "wallpapers/nortica.png"
+HELP_LAUNCHER = CONFIG / "scripts/help-shortcuts/desktop-files/nortica-help.desktop"
+TICKET_LAUNCHER = CONFIG / "scripts/help-shortcuts/desktop-files/nortica-ticket.desktop"
+HELP_ICON = CONFIG / "scripts/help-shortcuts/pngs/nortica-help.png"
+TICKET_ICON = CONFIG / "scripts/help-shortcuts/pngs/nortica-ticket.png"
 
 
 class NoctaliaBundleTests(unittest.TestCase):
@@ -30,25 +30,24 @@ class NoctaliaBundleTests(unittest.TestCase):
         self.assertEqual(settings["theme"]["builtin"], "Gruvbox")
         self.assertEqual(wallpaper["directory"], "/opt/media/wall")
         self.assertEqual(wallpaper["default"]["path"],
-                         "/opt/media/wall/debianzfs_1.png")
+                         "/opt/media/wall/nortica.png")
         self.assertEqual(wallpaper["last"]["path"],
-                         "/opt/media/wall/debianzfs_1.png")
+                         "/opt/media/wall/nortica.png")
         self.assertTrue(WALLPAPER.is_file())
         self.assertGreater(WALLPAPER.stat().st_size, 0)
         self.assertTrue(HELP_LAUNCHER.is_file())
         launcher = HELP_LAUNCHER.read_text()
-        self.assertIn("Name=DebianZFS Help", launcher)
-        self.assertIn("firefox-esr --new-window https://docs.debian.foelk.com", launcher)
-        self.assertIn("Icon=debianzfs-help", launcher)
+        self.assertIn("Name=Nortica Help", launcher)
+        self.assertIn("firefox-esr --new-window https://github.com/Nortica-Linux/nortica/blob/main/step-by-step.md", launcher)
+        self.assertIn("Icon=nortica-help", launcher)
         self.assertTrue(HELP_ICON.is_file())
         self.assertGreater(HELP_ICON.stat().st_size, 0)
         self.assertTrue(TICKET_ICON.is_file())
         self.assertGreater(TICKET_ICON.stat().st_size, 0)
         ticket = TICKET_LAUNCHER.read_text()
-        self.assertIn("Name=DebianZFS Ticket", ticket)
-        self.assertIn("https://github.com/foelkdavid/debian-docs/issues/new?labels=Liveticket",
-                      ticket)
-        self.assertIn("Icon=debianzfs-ticket", ticket)
+        self.assertIn("Name=Nortica Ticket", ticket)
+        self.assertIn("https://github.com/Nortica-Linux/nortica/issues/new", ticket)
+        self.assertIn("Icon=nortica-ticket", ticket)
 
     def test_live_and_target_paths_install_assets_for_the_selected_user(self):
         user_setup = (REPO / "deploy/scripts/user-setup.sh").read_text()
@@ -61,20 +60,20 @@ class NoctaliaBundleTests(unittest.TestCase):
         self.assertIn('"$REPO_DIR/noctalia/settings.toml"', config_installer)
         self.assertIn('"$HOME/.zprofile"', dotfiles_deployer)
         self.assertIn('dotfiles/zsh/zprofile', dotfiles_deployer)
-        self.assertIn('"$TARGET$home/.local/debianzfs-config"', target_setup)
+        self.assertIn('"$TARGET$home/.local/nortica-config"', target_setup)
         self.assertNotIn('.local/deploy', target_setup)
         self.assertIn('branch.main.merge refs/heads/main', target_setup)
         self.assertIn('branch.main.merge refs/heads/main', image_build)
-        self.assertIn('"$TARGET/opt/media/wall/debianzfs_1.png"', target_setup)
+        self.assertIn('"$TARGET/opt/media/wall/nortica.png"', target_setup)
         self.assertIn('chroot_run chown -R "$DEBIAN_SUDOUSER:$DEBIAN_SUDOUSER" /opt/media/wall',
                       target_setup)
-        self.assertIn('/opt/media/wall/debianzfs_1.png', image_build)
+        self.assertIn('/opt/media/wall/nortica.png', image_build)
         self.assertIn('-o liveuser -g liveuser', image_build)
         self.assertIn('systemctl --root=/ --no-reload enable NetworkManager.service',
                       image_build)
         self.assertIn("L+ /etc/resolv.conf - - - - /run/NetworkManager/resolv.conf",
                       image_build)
-        self.assertIn('/home/liveuser/.local/debianzfs-config', image_build)
+        self.assertIn('/home/liveuser/.local/nortica-config', image_build)
         self.assertIn("disable-live-lock.py", image_build)
         self.assertIn("enabled = false", (REPO / "deploy/scripts/disable-live-lock.py").read_text())
 
@@ -95,8 +94,8 @@ class NoctaliaBundleTests(unittest.TestCase):
             home = Path(temporary)
             desktop = home / "Desktop"
             desktop.mkdir()
-            (desktop / "DebianZFS Help.desktop").write_text("old help\n")
-            (desktop / "DebianZFS Ticket.desktop").write_text("old ticket\n")
+            (desktop / "Nortica Help.desktop").write_text("old help\n")
+            (desktop / "Nortica Ticket.desktop").write_text("old ticket\n")
             env = dict(os.environ, HOME=str(home),
                        XDG_DATA_HOME=str(home / ".local/share"),
                        XDG_CONFIG_HOME=str(home / ".config"))
@@ -106,9 +105,9 @@ class NoctaliaBundleTests(unittest.TestCase):
             self.assertFalse(desktop.exists())
             applications = home / ".local/share/applications"
             self.assertEqual({path.name for path in applications.glob("*.desktop")},
-                             {"debianzfs-help.desktop", "debianzfs-ticket.desktop"})
-            self.assertTrue((applications / "debianzfs-help.desktop").is_file())
-            self.assertTrue((applications / "debianzfs-ticket.desktop").is_file())
+                             {"nortica-help.desktop", "nortica-ticket.desktop"})
+            self.assertTrue((applications / "nortica-help.desktop").is_file())
+            self.assertTrue((applications / "nortica-ticket.desktop").is_file())
             self.assertIn('XDG_DESKTOP_DIR="$HOME/"',
                           (home / ".config/user-dirs.dirs").read_text())
             self.assertFalse(desktop.exists())

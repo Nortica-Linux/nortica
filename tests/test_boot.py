@@ -71,7 +71,7 @@ configure_system
         with tempfile.TemporaryDirectory() as temporary:
             destination = Path(temporary) / "bootloaders"
             subprocess.run([sys.executable, str(REPO / "image/prepare-boot-menu.py"),
-                            str(REPO / "debianzfs-config/wallpapers/debianzfs_1.png"),
+                            str(REPO / "config/wallpapers/nortica.png"),
                             str(destination)], check=True)
             for bootloader, size in [("grub-pc", (800, 600)), ("syslinux_common", (640, 480))]:
                 with Image.open(destination / bootloader / "splash.png") as image:
@@ -81,7 +81,7 @@ configure_system
                           (destination / "grub-pc/live-theme/theme.txt").read_text())
             self.assertIn("menu background splash.png",
                           (destination / "syslinux_common/stdmenu.cfg").read_text())
-            self.assertIn("DebianZFS Live", (destination / "syslinux_common/menu.cfg").read_text())
+            self.assertIn("Nortica Live", (destination / "syslinux_common/menu.cfg").read_text())
 
 
 if __name__ == "__main__":

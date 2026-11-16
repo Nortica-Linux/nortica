@@ -29,23 +29,23 @@ bundled_files_check() {
         services/zfs-autosnap/zfs-autosnap.service services/zfs-autosnap/jobs.conf \
         deploy/deploy.sh deploy/vars.sh deploy/scripts/debian-sources.py \
         deploy/scripts/user-setup.sh deploy/scripts/disable-live-lock.py \
-        debianzfs-config/deploy.sh debianzfs-config/noctalia/settings.toml \
-        debianzfs-config/scripts/dotfiles/deploy.sh \
-        debianzfs-config/scripts/noctalia/deploy.sh \
-        debianzfs-config/scripts/help-shortcuts/deploy.sh \
-        debianzfs-config/wallpapers/debianzfs_1.png \
-        debianzfs-config/dotfiles/hypr/hyprland.lua \
-        debianzfs-config/dotfiles/alacritty/alacritty.toml \
-        debianzfs-config/dotfiles/gtk-3.0/settings.ini \
-        debianzfs-config/dotfiles/nvim/init.lua \
-        debianzfs-config/dotfiles/nvim/lua/options.lua \
-        debianzfs-config/dotfiles/zsh/zshrc debianzfs-config/dotfiles/zsh/zprofile \
-        debianzfs-config/dotfiles/zsh/aliases \
-        debianzfs-config/scripts/fonts/deploy.sh \
-        debianzfs-config/scripts/help-shortcuts/desktop-files/debianzfs-help.desktop \
-        debianzfs-config/scripts/help-shortcuts/desktop-files/debianzfs-ticket.desktop \
-        debianzfs-config/scripts/help-shortcuts/pngs/debianzfs-help.png \
-        debianzfs-config/scripts/help-shortcuts/pngs/debianzfs-ticket.png; do
+        config/deploy.sh config/noctalia/settings.toml \
+        config/scripts/dotfiles/deploy.sh \
+        config/scripts/noctalia/deploy.sh \
+        config/scripts/help-shortcuts/deploy.sh \
+        config/wallpapers/nortica.png \
+        config/dotfiles/hypr/hyprland.lua \
+        config/dotfiles/alacritty/alacritty.toml \
+        config/dotfiles/gtk-3.0/settings.ini \
+        config/dotfiles/nvim/init.lua \
+        config/dotfiles/nvim/lua/options.lua \
+        config/dotfiles/zsh/zshrc config/dotfiles/zsh/zprofile \
+        config/dotfiles/zsh/aliases \
+        config/scripts/fonts/deploy.sh \
+        config/scripts/help-shortcuts/desktop-files/nortica-help.desktop \
+        config/scripts/help-shortcuts/desktop-files/nortica-ticket.desktop \
+        config/scripts/help-shortcuts/pngs/nortica-help.png \
+        config/scripts/help-shortcuts/pngs/nortica-ticket.png; do
         [[ -s $REPO_DIR/$file ]] || { failhard "Missing bundled file: $file"; return 1; }
     done
 }
@@ -95,7 +95,7 @@ secure_boot_enabled() {
 }
 
 secure_boot_check() {
-    if secure_boot_enabled; then
+    if secure_boot_enabled /sys/firmware/efi/efivars; then
         failhard 'Secure Boot is enabled. Disable Secure Boot in UEFI firmware, then boot the live image again.'
         failhard 'This installer does not enroll ZFS / ZFSBootMenu signing keys.'
         failhard 'No packages or disks have been changed.'

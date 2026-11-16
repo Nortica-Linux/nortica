@@ -24,7 +24,7 @@ def frame_rows(frame):
 
 class InstallerTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="debianzfs-tests-")
+        self.temp = tempfile.TemporaryDirectory(prefix="nortica-tests-")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
@@ -47,15 +47,13 @@ trap 'exit 143' TERM
 '''
 
     def test_organization_config_sources(self):
-        url = "https://github.com/DebianZFS/config.git"
+        url = "https://github.com/Nortica-Linux/config.git"
         for path in (".gitmodules", "lib/target.sh", "image/build.sh"):
             with self.subTest(path=path):
-                text = (REPO / path).read_text()
-                self.assertIn(url, text)
-                self.assertNotIn("foelkdavid/debianzfs-config", text)
+                self.assertIn(url, (REPO / path).read_text())
         readme = (REPO / "README.md").read_text()
-        self.assertIn("https://github.com/DebianZFS/debianzfs.git", readme)
-        self.assertIn("https://github.com/DebianZFS/debianzfs/releases", readme)
+        self.assertIn("https://github.com/Nortica-Linux/nortica.git", readme)
+        self.assertIn("dist/nortica-live-amd64.iso", readme)
 
     def test_desktop_profiles_and_no(self):
         for profile in ("intel", "amd", "nvidia", "nouveau", "vm"):
@@ -216,7 +214,7 @@ TARGET={target}
 REPO_DIR="$REPO"
 DEBIAN_DESKTOP=true DEBIAN_SUDOUSER=david
 GPU_DRIVER=intel VM_GUEST=none VM_SOFTWARE_RENDERING=false
-DEBIANZFS_CONFIG_SOURCE="$REPO/debianzfs-config"
+NORTICA_CONFIG_SOURCE="$REPO/config"
 chroot_run() {{ printf 'chroot:%s\\n' "$*" >> "$TEST_ROOT/commands"; }}
 deploy_desktop
 ''')
@@ -225,7 +223,7 @@ deploy_desktop
         self.assertLess(commands.index("chroot:chown david:david /home/david/.local"),
                         next(index for index, line in enumerate(commands)
                              if line.startswith("chroot:env GPU_DRIVER=")))
-        self.assertTrue((target / "home/david/.local/debianzfs-config/deploy.sh").is_file())
+        self.assertTrue((target / "home/david/.local/nortica-config/deploy.sh").is_file())
 
     def test_configuration_and_restart_precede_all_preparation(self):
         fixture = self.ui() + '''
@@ -547,21 +545,23 @@ configure_networking
         (cache / "debootstrap-trixie-amd64.tar").write_text("fixture\n")
         self.bash(f'''
 TARGET={target}
-DEBIANZFS_IMAGE_CACHE={cache}
+NORTICA_IMAGE_CACHE={cache}
 mount() {{ printf '%s\\n' "$*" >> "$TEST_ROOT/mounts"; }}
 mount_bundled_apt_cache
 [[ $IMAGE_CACHE_MOUNTED == true ]]
 ''')
         self.assertEqual((self.root / "mounts").read_text().count("--bind"), 1)
-        self.assertIn("file:/mnt/debianzfs-cache ./", (target / "etc/apt/sources.list.d/debianzfs-image-cache.list").read_text())
-        self.assertIn("Pin-Priority: 1001", (target / "etc/apt/preferences.d/debianzfs-image-cache").read_text())
+        self.assertIn("file:/mnt/nortica-cache ./", (target / "etc/apt/sources.list.d/nortica-image-cache.list").read_text())
+        pin = (target / "etc/apt/preferences.d/nortica-image-cache").read_text()
+        self.assertIn("Pin-Priority: 1001", pin)
+        self.assertIn("Pin: release o=Nortica", pin)
         self.bash(f'''
 TARGET={target}
 IMAGE_CACHE_MOUNTED=true
 remove_bundled_apt_cache_config
 ''')
-        self.assertFalse((target / "etc/apt/sources.list.d/debianzfs-image-cache.list").exists())
-        self.assertFalse((target / "etc/apt/preferences.d/debianzfs-image-cache").exists())
+        self.assertFalse((target / "etc/apt/sources.list.d/nortica-image-cache.list").exists())
+        self.assertFalse((target / "etc/apt/preferences.d/nortica-image-cache").exists())
 
     def test_image_package_manifest_tracks_gpu_profiles(self):
         def manifest(*args):
@@ -585,18 +585,18 @@ remove_bundled_apt_cache_config
         self.assertNotIn("libxkbcommon0", manifest("base"))
 
     def test_image_installer_launcher_is_live_only_and_keeps_terminal_open(self):
-        shortcut = REPO / "image/live-assets/debianzfs-install.desktop"
-        icon = REPO / "image/live-assets/debianzfs_install.png"
+        shortcut = REPO / "image/live-assets/nortica-install.desktop"
+        icon = REPO / "image/live-assets/nortica-install.png"
         build = (REPO / "image/build.sh").read_text()
         desktop = shortcut.read_text()
         self.assertTrue(icon.is_file())
-        self.assertIn("Exec=alacritty --hold -e debianzfs-install", desktop)
-        self.assertIn("Icon=debianzfs_install", desktop)
-        self.assertIn('"$IMAGE_ROOT/live-assets/debianzfs_install.png"', build)
-        self.assertIn('"$IMAGE_ROOT/live-assets/debianzfs-install.desktop"', build)
-        self.assertIn("/home/liveuser/.local/share/applications/debianzfs-install.desktop", build)
+        self.assertIn("Exec=alacritty --hold -e nortica-install", desktop)
+        self.assertIn("Icon=nortica-install", desktop)
+        self.assertIn('"$IMAGE_ROOT/live-assets/nortica-install.png"', build)
+        self.assertIn('"$IMAGE_ROOT/live-assets/nortica-install.desktop"', build)
+        self.assertIn("/home/liveuser/.local/share/applications/nortica-install.desktop", build)
         self.assertNotIn("/home/liveuser/Desktop", build)
-        self.assertFalse((REPO / "debianzfs-config/scripts/installer-shortcut").exists())
+        self.assertFalse((REPO / "config/scripts/installer-shortcut").exists())
 
     def test_mirrored_esp_mounts_allow_a_missing_disk(self):
         self.bash('''
@@ -785,7 +785,7 @@ run_stage preparation info '[Install live packages]'
                 self.assertIn('Console keymap -> [ ', text)
                 self.assertNotIn('hidden-password', text)
                 if colored:
-                    self.assertIn('\x1b[0;32mDebian-ZFS-Installer', text)
+                    self.assertIn('\x1b[0;32mNortica Installer', text)
                     self.assertIn('\x1b[0;33m[Configuration]', text)
                     self.assertIn('[ \x1b[0;33mde-latin1\x1b[0m ]', text)
                     self.assertIn('\x1b[0;35m[preparation]', text)
@@ -831,7 +831,7 @@ run_stage second sleep 20
         self.assertIn("[second]", text)
         self.assertIn("✘ second", text)
         self.assertIn("\x1b[0;31m✘ second", text)
-        self.assertIn("\x1b[0;32mDebian-ZFS-Installer", text)
+        self.assertIn("\x1b[0;32mNortica Installer", text)
         self.assertIn("\x1b[0;35m[second]", text)
         self.assertIn("\x1b[1;34mLog:", text)
         self.assertNotIn("[passed] first", text)
