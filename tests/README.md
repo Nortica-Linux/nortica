@@ -1,5 +1,7 @@
 # Validation
 
+Latest recorded checks: [2026-11-26](validation-20261126.md).
+
 ## Host-safe tests
 
 Requires Bash, GNU Make, `flock`, Python 3, Git, Lua 5.4, Pillow and `pyte`.
