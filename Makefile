@@ -1,5 +1,5 @@
 # Config release tag/commit, or latest to follow config's main branch.
-CONFIG_VERSION = v1.0.0
+CONFIG_VERSION = v1.1.0
 DOCKER ?= docker
 
 .DEFAULT_GOAL := iso

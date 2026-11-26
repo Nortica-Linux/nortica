@@ -20,7 +20,8 @@ PACKAGES=(
     ca-certificates curl git unzip zip python3
     dbus dbus-user-session libpam-systemd polkitd
     zsh neovim alacritty firefox-esr
-    thunar thunar-volman thunar-archive-plugin tumbler xarchiver
+    libarchive13t64 libwayland-client0 libwayland-cursor0 libwayland-egl1 libegl1
+    desktop-file-utils
     gvfs gvfs-backends udisks2
     xdg-utils xdg-user-dirs xdg-desktop-portal xdg-desktop-portal-gtk libglib2.0-bin
     xwayland xkb-data wl-clipboard grim slurp

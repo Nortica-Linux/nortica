@@ -26,6 +26,12 @@ mkdir -p -- "$CONFIG_DIR/nortica"
 ln -sfnT -- "$profile_path" "$CONFIG_DIR/nortica/graphics.lua"
 
 "$CONFIG_REPO_DIR/deploy.sh"
+# Set defaults only when the system tools have been installed.
+if [[ -f /usr/local/share/applications/sms.desktop ]]; then
+    xdg-mime default sms.desktop inode/directory
+    xdg-mime default dzi.desktop image/png image/jpeg image/bmp image/gif
+    xdg-mime default mzp.desktop application/pdf
+fi
 # Shared by installed desktops and the live image, running as the owning user.
 python3 "$REPO_DIR/scripts/enable-battery.py" \
     "${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/settings.toml"

@@ -17,6 +17,20 @@ Set `CONFIG_VERSION` in `Makefile` to a config release tag, commit or `latest`
 (current `main`). Build caches persist in `.build/`.
 See [build details](image/README.md).
 
+### Desktop tools
+
+The amd64 desktop includes [sms](https://github.com/foelkdavid/sms) (files,
+Super+E), [dzi](https://github.com/foelkdavid/dzi) (images), and
+[mzp](https://github.com/foelkdavid/mzp) (PDFs), instead of Thunar.
+Release versions and SHA-256 hashes are pinned in
+`deploy/scripts/install-tools.py`. The image caches the archives for both live
+and target deployment; standalone deployment downloads them. Binaries, launchers,
+icons, PDFium and license notices install under `/usr/local`.
+
+The desktop configuration is pinned to config `v1.1.0`. The builder rejects
+older configurations that still launch Thunar. Existing installations are not
+purged of previously installed Thunar packages automatically.
+
 ## Use it
 
 1. Verify the image: `cd iso && sha256sum -c *.iso.sha256`.

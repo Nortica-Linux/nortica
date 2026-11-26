@@ -37,6 +37,10 @@ apt-get install -y --no-install-recommends ca-certificates curl git
 # shellcheck source=image/config.sh
 source "$IMAGE_ROOT/config.sh"
 prepare_config_source "$CONFIG_VERSION" "$CONFIG_SOURCE_DIR"
+if grep -qi thunar "$CONFIG_SOURCE_DIR/dotfiles/hypr/hyprland.lua"; then
+    echo 'Selected config still launches Thunar. Publish the sms config and update CONFIG_VERSION before building.' >&2
+    exit 1
+fi
 
 # Rebuild generated configuration and roots, retaining live-build's bootstrap
 # and package caches. Never reuse a previously configured desktop root.
@@ -97,6 +101,7 @@ find "$APT_CACHE" -maxdepth 1 -type f -name '*.deb' -exec cp -n -t "$REPO_ROOT/p
     cd "$REPO_ROOT"
     dpkg-scanpackages pool /dev/null > Packages
 )
+python3 "$ROOT/deploy/scripts/install-tools.py" --download-only --cache "$REPO_ROOT/tools"
 gzip -9 -c "$REPO_ROOT/Packages" > "$REPO_ROOT/Packages.gz"
 apt-ftparchive \
     -o APT::FTPArchive::Release::Origin=Nortica \

@@ -29,6 +29,7 @@ bundled_files_check() {
         services/zfs-autosnap/zfs-autosnap.service services/zfs-autosnap/jobs.conf \
         deploy/deploy.sh deploy/vars.sh deploy/scripts/debian-sources.py \
         deploy/scripts/user-setup.sh deploy/scripts/disable-live-lock.py \
+        deploy/scripts/install-tools.py \
         config/deploy.sh config/noctalia/settings.toml \
         config/scripts/dotfiles/deploy.sh \
         config/scripts/noctalia/deploy.sh \

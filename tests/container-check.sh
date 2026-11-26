@@ -17,6 +17,9 @@ cat > "$TEST/bin/mock" <<'EOF'
 set -eu
 name=${0##*/}
 case $name in
+    python3)
+        if [[ $1 == */install-tools.py ]]; then exit 0; fi
+        exec /usr/bin/python3 "$@" ;;
     apt-cache)
         if [[ ${1:-} == madison ]]; then
             printf ' %s | 0.55.2 | http://deb.debian.org/debian trixie-backports/main amd64 Packages\n' "$2"
@@ -41,7 +44,7 @@ case $name in
 esac
 EOF
 chmod 755 "$TEST/bin/mock"
-for command in apt-get apt-cache curl dpkg dpkg-query systemctl update-initramfs Hyprland start-hyprland noctalia Thunar firefox-esr alacritty nvim grim slurp wl-copy gio; do
+for command in apt-get apt-cache curl dpkg dpkg-query systemctl update-initramfs python3 update-desktop-database Hyprland start-hyprland noctalia sms dzi mzp firefox-esr alacritty nvim grim slurp wl-copy gio; do
     ln -s mock "$TEST/bin/$command"
 done
 # Optional fonts/plugins are skipped. Verify their user-facing outputs and

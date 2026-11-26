@@ -55,7 +55,7 @@ else
         *) ARCH=unknown ;;
     esac
 fi
-case "$ARCH" in amd64|arm64) ;; *) die "Noctalia's APT repository requires amd64 or arm64." ;; esac
+[[ $ARCH == amd64 ]] || die "The bundled dzi, sms and mzp releases require amd64."
 case "$VM_SOFTWARE_RENDERING" in true|false) ;; *) die "VM_SOFTWARE_RENDERING must be true or false." ;; esac
 case "$VM_GUEST" in auto|qemu|vmware|none) ;; *) die "VM_GUEST must be auto, qemu, vmware or none." ;; esac
 
@@ -213,7 +213,11 @@ validate_nvidia_kernels
 
 HYPRLAND_VERSION=$(dpkg-query -W -f='${Version}' hyprland)
 dpkg --compare-versions "$HYPRLAND_VERSION" ge 0.55 || die "The Lua configuration requires Hyprland 0.55 or newer; installed: $HYPRLAND_VERSION"
-for executable in Hyprland start-hyprland noctalia Thunar firefox-esr alacritty zsh nvim grim slurp wl-copy gio; do
+printf 'Installing dzi, sms and mzp...\n'
+TOOLS_CACHE=${NORTICA_APT_CACHE:-${REPO_DIR%/deploy}/cache}/tools
+as_root python3 "$REPO_DIR/scripts/install-tools.py" --cache "$TOOLS_CACHE"
+as_root update-desktop-database /usr/local/share/applications
+for executable in Hyprland start-hyprland noctalia sms dzi mzp firefox-esr alacritty zsh nvim grim slurp wl-copy gio; do
     command -v "$executable" >/dev/null || die "The required program $executable is missing after package installation."
 done
 
