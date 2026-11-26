@@ -132,7 +132,7 @@ git clone --local --no-hardlinks "$CONFIG_SOURCE_DIR" \
     "$CONFIG_ROOT/config/includes.chroot/opt/nortica-install/config"
 git clone --local --no-hardlinks "$CONFIG_SOURCE_DIR" \
     "$CONFIG_ROOT/config/includes.chroot/opt/nortica-config"
-install -D -m 644 "$IMAGE_ROOT/live-assets/nortica-install.png" \
+install -D -m 644 "$ROOT/branding/app-icon-dark-512.png" \
     "$CONFIG_ROOT/config/includes.chroot/usr/share/pixmaps/nortica-install.png"
 install -D -m 644 "$IMAGE_ROOT/live-assets/nortica-install.desktop" \
     "$CONFIG_ROOT/config/includes.chroot/usr/share/nortica-live/nortica-install.desktop"

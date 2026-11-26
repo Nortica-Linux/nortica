@@ -1,5 +1,10 @@
 # Nortica
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="branding/logo-horizontal-dark.svg">
+  <img src="branding/logo-horizontal-light.svg" alt="Nortica" width="420">
+</picture>
+
 ## Build an image
 
 Requires an amd64 Linux host, Docker, GNU Make, `flock` and internet access.
@@ -15,7 +20,8 @@ Output: `iso/nortica-live-amd64-YYYYMMDDTHHMMSSZ.iso` and a matching `.iso.sha25
 Timestamps are UTC; previous images are kept.
 Set `CONFIG_VERSION` in `Makefile` to a config release tag, commit or `latest`
 (current `main`). Build caches persist in `.build/`.
-See [build details](image/README.md).
+See [build details](image/README.md). Brand assets and their integration points
+are documented in [`branding/`](branding/README.md).
 
 ### Desktop tools
 
@@ -27,7 +33,7 @@ Release versions and SHA-256 hashes are pinned in
 and target deployment; standalone deployment downloads them. Binaries, launchers,
 icons, PDFium and license notices install under `/usr/local`.
 
-The desktop configuration is pinned to config `v1.1.0`. The builder rejects
+The desktop configuration is pinned to config `v1.2.0`. The builder rejects
 older configurations that still launch Thunar. Existing installations are not
 purged of previously installed Thunar packages automatically.
 

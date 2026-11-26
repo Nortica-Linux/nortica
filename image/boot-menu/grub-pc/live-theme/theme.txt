@@ -1,6 +1,6 @@
 desktop-image: "../splash.png"
 title-text: "Nortica Live"
-title-color: "#ffffff"
+title-color: "#fbf1c7"
 title-font: "Unifont Regular 16"
 message-font: "Unifont Regular 16"
 terminal-font: "Unifont Regular 16"
@@ -12,7 +12,7 @@ terminal-font: "Unifont Regular 16"
     height = 25%
     item_color = "#dddddd"
     item_font = "Unifont Regular 16"
-    selected_item_color = "#ff547d"
+    selected_item_color = "#b8bb26"
     selected_item_font = "Unifont Regular 16"
     item_height = 20
     item_spacing = 6
@@ -41,7 +41,7 @@ terminal-font: "Unifont Regular 16"
     text = "@TIMEOUT_NOTIFICATION_LONG@"
     font = "Unifont Regular 16"
     text_color = "#ffffff"
-    fg_color = "#d70a53"
-    bg_color = "#202028"
-    border_color = "#d70a53"
+    fg_color = "#b8bb26"
+    bg_color = "#282828"
+    border_color = "#79740e"
 }

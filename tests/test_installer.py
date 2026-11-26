@@ -586,13 +586,13 @@ remove_bundled_apt_cache_config
 
     def test_image_installer_launcher_is_live_only_and_keeps_terminal_open(self):
         shortcut = REPO / "image/live-assets/nortica-install.desktop"
-        icon = REPO / "image/live-assets/nortica-install.png"
+        icon = REPO / "branding/app-icon-dark-512.png"
         build = (REPO / "image/build.sh").read_text()
         desktop = shortcut.read_text()
         self.assertTrue(icon.is_file())
         self.assertIn("Exec=alacritty --hold -e nortica-install", desktop)
         self.assertIn("Icon=nortica-install", desktop)
-        self.assertIn('"$IMAGE_ROOT/live-assets/nortica-install.png"', build)
+        self.assertIn('"$ROOT/branding/app-icon-dark-512.png"', build)
         self.assertIn('"$IMAGE_ROOT/live-assets/nortica-install.desktop"', build)
         self.assertIn("/home/liveuser/.local/share/applications/nortica-install.desktop", build)
         self.assertNotIn("/home/liveuser/Desktop", build)
